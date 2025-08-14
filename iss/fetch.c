@@ -58,7 +58,7 @@ void fetch_query(const char *q, char *result)
 
 void fetch(char *lat, char *lon, unsigned long *ts)
 {
-    char ts_s[16];
+    char ts_s[20];
 
     memset(ts_s,0,sizeof(ts_s));
 

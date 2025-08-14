@@ -9,18 +9,20 @@
 
 void osd(char *lat, char *lon, unsigned long t)
 {
+    time_t ti;
 	char tmp[41];
         char buf[26];
         struct tm tod;
         
-	gr_text(10,20,"CURRENT ISS POSITION");
+	gr_text(10,21,"CURRENT ISS POSITION");
 
-        _localtime(&t,&tod);
-        sprintf(tmp,"          %s",_asctime(&tod,buf));
+        time(&ti);
+        _localtime(&ti,&tod);
         
-	gr_text(0,21,tmp);
-	sprintf(tmp,"           LATITUDE: %10s",lat);
+        sprintf(tmp,"          %s",_asctime(&tod,buf));
 	gr_text(0,22,tmp);
-	sprintf(tmp,"          LONGITUDE: %10s",lon);
+	sprintf(tmp,"           LATITUDE: %10s",lat);
 	gr_text(0,23,tmp);
+	sprintf(tmp,"          LONGITUDE: %10s",lon);
+	gr_text(0,24,tmp);
 }
