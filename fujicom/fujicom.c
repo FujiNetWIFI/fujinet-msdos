@@ -94,6 +94,7 @@ int _fujicom_send_command(cmdFrame_t far *cmd)
 {
   uint8_t *cc = (uint8_t *) cmd;
 
+
   /* Calculate checksum and place in frame */
   cmd->cksum = fujicom_cksum(cc, sizeof(cmdFrame_t) - sizeof(cmd->cksum));
 
@@ -113,23 +114,14 @@ int fujicom_command(cmdFrame_t far *cmd)
 {
   int reply;
 
+
   //port_disable_interrupts(port);
-  reply = _fujicom_send_command(cmd);
-
-  if (reply == 'N')
-      return reply;
-
+  _fujicom_send_command(cmd);
   reply = port_getc_nobuf(port, TIMEOUT);
-
   //port_enable_interrupts(port);
 #ifdef DEBUG
   consolef("FN command reply: 0x%04x\n", reply);
 #endif
-
-  if (reply != 'C')
-  {
-      consolef("FN command completion error: 0x%04x\n",reply);
-  }
 
   return reply;
 }
@@ -153,7 +145,6 @@ int fujicom_command_read(cmdFrame_t far *cmd, void far *ptr, uint16_t len)
     port_wait_for_rx_empty(port);
 
     reply = _fujicom_send_command(cmd);
-
     if (reply == 'N')
       break;
 
