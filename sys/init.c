@@ -85,6 +85,8 @@ uint16_t Init_cmd(SYSREQ far *req)
 
   // If get_ returned error, FujiNet is probably not connected
   if (err) {
+    req->init.num_units = 0;
+    req->init.end_ptr = 0;
     fujicom_done();
     return ERROR_BIT;
   }
@@ -120,7 +122,7 @@ uint16_t Init_cmd(SYSREQ far *req)
 
   setf5();
   consolef("INT F5 Functions installed.\n");
-  
+
   return OP_COMPLETE;
 }
 
@@ -297,7 +299,7 @@ uint16_t parse_config(const uint8_t far *config_sys)
     }
     if (buf == buf_max)
       break;
-    
+
     if (!eq_flag) {
       *buf = '=';
       buf++;
