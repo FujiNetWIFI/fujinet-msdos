@@ -5,12 +5,11 @@
 #include "print.h"
 #include "commands.h"
 
-static cmdFrame_t _cmdFrame;
-
 #pragma data_seg("_CODE")
 
 /*
  * DL		== direction
+ * DH           == field descriptor
  * AL		== device
  * AH		== command
  * CL		== aux1
@@ -19,32 +18,33 @@ static cmdFrame_t _cmdFrame;
  * ES:BX	== far buffer pointer
  * DI		== buffer length
  */
-int intf5(uint16_t direction, uint16_t devcom, uint16_t aux12, uint16_t aux34,
+int intf5(uint16_t descrdir, uint16_t devcom, uint16_t aux12, uint16_t aux34,
 	  void far *ptr, uint16_t length)
 #pragma aux intf5 parm [dx] [ax] [cx] [si] [es bx] [di] value [ax]
 {
-    int reply;
+  bool success;
 
-    _enable();
+  _enable();
 
-    _cmdFrame.devcom = devcom;
-    _cmdFrame.aux12 = aux12;
-    _cmdFrame.aux34 = aux34;
+  switch (descrdir & 0xFF) {
+  case FUJIINT_NONE: // No Payload
+    success = fuji_bus_call(devcom & 0xFF, devcom >> 8, descrdir >> 8,
+                            aux12 & 0xFF, aux12 >> 8, aux34 & 0xFF, aux34 >> 8,
+                            NULL, 0, NULL, 0);
+    break;
+  case FUJIINT_READ: // READ (Fujinet -> PC)
+    success = fuji_bus_call(devcom & 0xFF, devcom >> 8, descrdir >> 8,
+                            aux12 & 0xFF, aux12 >> 8, aux34 & 0xFF, aux34 >> 8,
+                            NULL, 0, (uint8_t far *) ptr, length);
+    break;
+  case FUJIINT_WRITE: // WRITE (PC -> FujiNet)
+    success = fuji_bus_call(devcom & 0xFF, devcom >> 8, descrdir >> 8,
+                            aux12 & 0xFF, aux12 >> 8, aux34 & 0xFF, aux34 >> 8,
+                            (uint8_t far *) ptr, length, NULL, 0);
+    break;
+  }
 
-    switch (direction & 0xFF)
-    {
-    case FUJIINT_NONE: // No Payload
-        reply = fujicom_command(&_cmdFrame);
-        break;
-    case FUJIINT_READ: // READ (Fujinet -> PC)
-        reply = fujicom_command_read(&_cmdFrame, (uint8_t far *) ptr, length);
-        break;
-    case FUJIINT_WRITE: // WRITE (PC -> FujiNet)
-        reply = fujicom_command_write(&_cmdFrame, (uint8_t far *) ptr, length);
-        break;
-    }
-
-    return reply;
+  return success ? 'C' : 'E';
 }
 
 void setf5(void)

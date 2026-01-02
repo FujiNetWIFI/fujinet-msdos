@@ -8,6 +8,8 @@
 #undef FUJIF5_AS_FUNCTION
 
 #include <stdint.h>
+#include <stdbool.h>
+#include <stdlib.h>
 
 #define FUJINET_INT     0xF5
 #define FUJIINT_NONE    0x00
@@ -16,6 +18,7 @@
 
 #define FUJICOM_TIMEOUT  -1
 
+#ifdef PRE_FEP004
 // FIXME - get these constants and structs from
 //         fujinet-firmware/lib/bus/rs232/rs232.h instead of
 //         redefining them here
@@ -46,6 +49,24 @@ typedef union {         /* Command Frame */
     uint8_t cksum;               /* 8-bit checksum */
   };
 } cmdFrame_t;
+#else /* ! PRE_FEP004 */
+enum {
+  FUJI_FIELD_NONE        = 0,
+  FUJI_FIELD_A1          = 1,
+  FUJI_FIELD_A1_A2       = 2,
+  FUJI_FIELD_A1_A2_A3    = 3,
+  FUJI_FIELD_A1_A2_A3_A4 = 4,
+  FUJI_FIELD_B12         = 5,
+  FUJI_FIELD_B12_B34     = 6,
+  FUJI_FIELD_C1234       = 7,
+};
+
+#define U32_MSW(v) ((uint16_t)(((uint32_t)(v) >> 16) & 0xFFFF))  // Most Significant Word
+#define U32_LSW(v) ((uint16_t)((uint32_t)(v) & 0xFFFF))          // Least Significant Word
+
+#define U16_MSB(w) ((uint8_t)(((uint16_t)(w) >> 8) & 0xFF))
+#define U16_LSB(w) ((uint8_t)((uint16_t)(w) & 0xFF))
+#endif /* PRE_FEP004 */
 
 typedef struct {
   uint16_t bw;
@@ -169,6 +190,7 @@ enum {
  */
 extern void fujicom_init(void);
 
+#ifdef PRE_FEP004
 /**
  * @brief calculate 8-bit checksum for cmdFrame_t.dcksum
  * @param buf Buffer to compute checksum against
@@ -198,6 +220,12 @@ extern int fujicom_command_read(cmdFrame_t far *c, void far *ptr, uint16_t len);
  * @param len Length of buffer to send.
  */
 extern int fujicom_command_write(cmdFrame_t far *c, void far *ptr, uint16_t len);
+#else /* ! PRE_FEP004 */
+extern bool fuji_bus_call(uint8_t device, uint8_t fuji_cmd, uint8_t fields,
+                          uint8_t aux1, uint8_t aux2, uint8_t aux3, uint8_t aux4,
+                          const void far *data, size_t data_length,
+                          void far *reply, size_t reply_length);
+#endif /* PRE_FEP004 */
 
 /**
  * @brief end fujicom
@@ -205,21 +233,21 @@ extern int fujicom_command_write(cmdFrame_t far *c, void far *ptr, uint16_t len)
 void fujicom_done(void);
 
 #ifndef FUJIF5_AS_FUNCTION
-extern int fujiF5w(uint16_t direction, uint16_t devcom,
+extern int fujiF5w(uint16_t descrdir, uint16_t devcom,
                   uint16_t aux12, uint16_t aux34, void far *buffer, uint16_t length);
 #pragma aux fujiF5w = \
   "int 0xf5" \
   parm [dx] [ax] [cx] [si] [es bx] [di] \
   modify [ax]
-#define fujiF5(dx, dev, cmd, a12, a34, buf, len) \
-  fujiF5w(dx, cmd << 8 | dev, a12, a34, buf, len)
+#define fujiF5(dir, dev, cmd, descr, a12, a34, buf, len)         \
+  fujiF5w(descr << 8 | dir, cmd << 8 | dev, a12, a34, buf, len)
 #else
-extern int fujiF5(uint8_t direction, uint8_t device, uint8_t command,
+extern int fujiF5(uint8_t direction, uint8_t device, uint8_t command, uint8_t descr,
                   uint16_t aux12, uint16_t aux34, void far *buffer, uint16_t length);
 #endif
 
-#define fujiF5_none(d, c, a12, a34, b, l) fujiF5(FUJIINT_NONE, d, c, a12, a34, b, l)
-#define fujiF5_read(d, c, a12, a34, b, l) fujiF5(FUJIINT_READ, d, c, a12, a34, b, l)
-#define fujiF5_write(d, c, a12, a34, b, l) fujiF5(FUJIINT_WRITE, d, c, a12, a34, b, l)
+#define fujiF5_none(d, c, fd, a12, a34, b, l) fujiF5(FUJIINT_NONE, d, c, fd, a12, a34, b, l)
+#define fujiF5_read(d, c, fd, a12, a34, b, l) fujiF5(FUJIINT_READ, d, c, fd, a12, a34, b, l)
+#define fujiF5_write(d, c, fd, a12, a34, b, l) fujiF5(FUJIINT_WRITE, d, c, fd, a12, a34, b, l)
 
 #endif /* _FUJICOM_H */
