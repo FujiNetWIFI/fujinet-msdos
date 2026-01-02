@@ -15,7 +15,9 @@ extern void End_code(void);
 DOS_BPB fn_bpb_table[FN_MAX_DEV];
 DOS_BPB *fn_bpb_pointers[FN_MAX_DEV + 1]; // leave room for the NULL terminator
 
+#ifdef OBSOLETE
 static cmdFrame_t cmd; // FIXME - make this shared with init.c?
+#endif /* OBSOLETE */
 
 // time_t on FujiNet is 64 bits but that is too large to work
 // with. Allocate twice as many 32b bit ints.
@@ -33,7 +35,7 @@ uint16_t Media_check_cmd(SYSREQ far *req)
   // Avoid race condition that only happens on PCjr systems
   // I do not know why this works. -Thom
   for (i=0;i<8192;i++);
-  
+
   if (req->unit >= FN_MAX_DEV) {
     consolef("Invalid Media Check unit: %i\n", req->unit);
     return ERROR_BIT | UNKNOWN_UNIT;
@@ -41,19 +43,15 @@ uint16_t Media_check_cmd(SYSREQ far *req)
 
   old_status = mount_status[req->unit * 2];
 
-  cmd.device = DEVICEID_FUJINET;
-  cmd.comnd = CMD_STATUS;
-  cmd.aux = STATUS_MOUNT_TIME;
-  reply = fujicom_command_read(&cmd, mount_status, sizeof(mount_status));
-  if (reply != 'C')
+  if (!fuji_bus_call(DEVICEID_FUJINET, CMD_STATUS, FUJI_FIELD_A1,
+                     STATUS_MOUNT_TIME, 0, 0, 0,
+                     NULL, 0, mount_status, sizeof(mount_status)))
     return ERROR_BIT | NOT_READY;
 
   // Get read/write state while we're at it
-  cmd.device = DEVICEID_FUJINET;
-  cmd.comnd = CMD_READ_DEVICE_SLOTS;
-  cmd.aux = 0;
-  reply = fujicom_command_read(&cmd, disk_slots, sizeof(disk_slots));
-  if (reply != 'C')
+  if (!fuji_bus_call(DEVICEID_FUJINET, CMD_READ_DEVICE_SLOTS, FUJI_FIELD_C1234,
+                     0, 0, 0, 0,
+                     NULL, 0, disk_slots, sizeof(disk_slots)))
     return ERROR_BIT | NOT_READY;
 
 #if 0
@@ -89,14 +87,11 @@ uint16_t Build_bpb_cmd(SYSREQ far *req)
     return ERROR_BIT | UNKNOWN_UNIT;
   }
 
-  cmd.device = DEVICEID_DISK + req->unit;
-  cmd.comnd = CMD_READ;
-  cmd.aux = 0;
-
   // DOS gave us a buffer to use
   buf = req->bpb.buffer_ptr;
-  reply = fujicom_command_read(&cmd, buf, SECTOR_SIZE);
-  if (reply != 'C') {
+  if (!fuji_bus_call(DEVICEID_DISK + req->unit, CMD_READ, FUJI_FIELD_C1234,
+                     0, 0, 0, 0,
+                     NULL, 0, buf, SECTOR_SIZE)) {
     consolef("FujiNet read fail: %i\n", reply);
     return ERROR_BIT | READ_FAULT;
   }
@@ -157,12 +152,10 @@ uint16_t Input_cmd(SYSREQ far *req)
       return ERROR_BIT | NOT_FOUND;
     }
 
-    cmd.device = DEVICEID_DISK + req->unit;
-    cmd.comnd = CMD_READ;
-    cmd.aux = sector;
-
-    reply = fujicom_command_read(&cmd, &buf[idx * SECTOR_SIZE], SECTOR_SIZE);
-    if (reply != 'C')
+    if (!fuji_bus_call(DEVICEID_DISK + req->unit, CMD_READ, FUJI_FIELD_C1234,
+                       U16_LSB(U32_LSW(sector)), U16_MSB(U32_LSW(sector)),
+                       U16_LSB(U32_MSW(sector)), U16_MSB(U32_MSW(sector)),
+                       NULL, 0, &buf[idx * SECTOR_SIZE], SECTOR_SIZE))
       break;
   }
   if (!idx)
@@ -224,12 +217,10 @@ uint16_t Output_cmd(SYSREQ far *req)
       return ERROR_BIT | NOT_FOUND;
     }
 
-    cmd.device = DEVICEID_DISK + req->unit;
-    cmd.comnd = CMD_WRITE;
-    cmd.aux = sector;
-
-    reply = fujicom_command_write(&cmd, &buf[idx * SECTOR_SIZE], SECTOR_SIZE);
-    if (reply != 'C')
+    if (!fuji_bus_call(DEVICEID_DISK + req->unit, CMD_WRITE, FUJI_FIELD_C1234,
+                       U16_LSB(U32_LSW(sector)), U16_MSB(U32_LSW(sector)),
+                       U16_LSB(U32_MSW(sector)), U16_MSB(U32_MSW(sector)),
+                       &buf[idx * SECTOR_SIZE], SECTOR_SIZE, NULL, 0))
       break;
   }
   if (!idx)

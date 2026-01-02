@@ -45,7 +45,9 @@ struct _tm {
   char tm_sec;
 };
 
+#ifdef OBSOLETE
 cmdFrame_t cmd;
+#endif /* OBSOLETE */
 union REGS regs;
 extern void *config_env, *driver_end;
 
@@ -134,11 +136,9 @@ uint8_t get_fujinet_version()
   unsigned int idx;
 
 
-  cmd.device = DEVICEID_FUJINET;
-  cmd.comnd = CMD_GET_ADAPTERCONFIG;
-  reply = fujicom_command_read(&cmd, (uint8_t *) &config, sizeof(config));
-
-  if (reply != 'C') {
+  if (!fuji_bus_call(DEVICEID_FUJINET, CMD_GET_ADAPTERCONFIG, FUJI_FIELD_NONE,
+                     0, 0, 0, 0,
+                     NULL, 0, &config, sizeof(config))) {
     consolef("Unable to get FujiNet version %i.\nAborted.\n", reply);
     return 1;
   }
@@ -159,12 +159,9 @@ uint8_t get_set_time(uint8_t set_flag)
   uint16_t year_wcen;
 
 
-  cmd.device = DEVICEID_APETIME;
-  cmd.comnd = CMD_APETIME_GETTZTIME;
-
-  reply = fujicom_command_read(&cmd, (uint8_t *) &cur_time, sizeof(cur_time));
-
-  if (reply != 'C') {
+  if (!fuji_bus_call(DEVICEID_APETIME, CMD_APETIME_GETTZTIME, FUJI_FIELD_NONE,
+                     0, 0, 0, 0,
+                     NULL, 0, &cur_time, sizeof(cur_time))) {
     consolef("Could not read time from FujiNet %i.\nAborted.\n", reply);
     return 1;
   }
