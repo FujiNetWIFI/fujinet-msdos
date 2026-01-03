@@ -68,6 +68,10 @@ void fujicom_init(void)
   port_set(port, bps, 'N', 8, 1);
   port_disable_interrupts(port);
 
+#ifndef PRE_FEP004
+  port_set_dtr(port, 1);
+#endif /* PRE_FEP004 */
+
   return;
 }
 
@@ -499,6 +503,10 @@ bool fuji_bus_call(uint8_t device, uint8_t fuji_cmd, uint8_t fields,
 
 void fujicom_done(void)
 {
+#ifndef PRE_FEP004
+  port_set_dtr(port, 0);
+#endif /* PRE_FEP004 */
+
   port_close(port);
   return;
 }
