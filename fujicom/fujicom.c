@@ -18,7 +18,7 @@
 
 #define TIMEOUT         100
 #define TIMEOUT_SLOW	15 * 1000
-#define MAX_RETRIES	5
+#define MAX_RETRIES	1
 #ifndef SERIAL_BPS
 #define SERIAL_BPS      115200
 #endif /* SERIAL_BPS */
