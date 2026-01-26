@@ -250,4 +250,13 @@ extern int fujiF5(uint8_t direction, uint8_t device, uint8_t command, uint8_t de
 #define fujiF5_read(d, c, fd, a12, a34, b, l) fujiF5(FUJIINT_READ, d, c, fd, a12, a34, b, l)
 #define fujiF5_write(d, c, fd, a12, a34, b, l) fujiF5(FUJIINT_WRITE, d, c, fd, a12, a34, b, l)
 
+// FIXME - doesn't belong in fujicom
+extern int port_identify_uart();
+enum {
+  UART_8250 = 0,
+  UART_16450,
+  UART_16550,
+  UART_16550A,
+};
+
 #endif /* _FUJICOM_H */

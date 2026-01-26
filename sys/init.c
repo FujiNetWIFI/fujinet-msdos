@@ -1,7 +1,7 @@
 #include "commands.h"
 #include "fujinet.h"
 #include "fujicom.h"
-#include "com.h"
+#include "portio.h"
 #include "print.h"
 #include "dispatch.h"
 #include <stdint.h>
@@ -195,11 +195,10 @@ uint8_t get_set_time(uint8_t set_flag)
 
 void check_uart()
 {
-  extern PORT far *port; // FIXME - this is in fujicom.c
   int uart;
 
 
-  uart = port_identify_uart(port);
+  uart = port_identify_uart();
   switch (uart) {
   case UART_16550A:
     consolef("Serial port is 16550A w/FIFO\n");

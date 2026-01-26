@@ -2,11 +2,11 @@
  * #FUJINET Low Level Routines
  */
 
-#undef DEBUG
+#define DEBUG
 #define INIT_INFO
 
 #include "fujicom.h"
-#include "com.h"
+#include "portio.h"
 #include <dos.h>
 #include <string.h>
 
@@ -23,26 +23,71 @@
 #define SERIAL_BPS      115200
 #endif /* SERIAL_BPS */
 
-PORT fn_port;
-PORT far *port;
+#ifdef M_I86
+#include <conio.h>
+#define inportb inp
+#define outportb outp
+#endif /* M_I86 */
+
+/*
+ * This group of defines creates all the definitions used
+ * to access registers and bit fields in the 8250 UART.
+ * While the names may not be the best, they are the ones
+ * used in the 8250 data sheets, so they are generally not
+ * changed.  Since the definitions are only used in COM.C,
+ * they are not included in the COM.H header file where
+ * they might normally be expected.
+ */
+#define RBR              0      /* Receive buffer register */
+#define THR              0      /* Transmit holding reg.   */
+#define IER              1      /* Interrupt Enable reg.   */
+#define IER_RX_DATA      1      /* Enable RX interrupt bit */
+#define IER_THRE         2      /* Enable TX interrupt bit */
+#define IIR              2      /* Interrupt ID register   */
+#define IIR_MODEM_STATUS 0      /* Modem stat. interrupt ID */
+#define IIR_TRANSMIT     2      /* Transmit interrupt ID   */
+#define IIR_RECEIVE      4      /* Receive interrupt ID    */
+#define IIR_LINE_STATUS  6      /* Line stat. interrupt ID */
+#define LCR              3      /* Line control register   */
+#define LCR_DLAB         0x80   /* Divisor access bit      */
+#define LCR_EVEN_PARITY  0x8    /* Set parity 'E' bits     */
+#define LCR_ODD_PARITY   0x18   /* Set parity 'O' bits     */
+#define LCR_NO_PARITY    0      /* Set parity 'N' bits     */
+#define LCR_1_STOP_BIT   0      /* Bits to set 1 stop bit  */
+#define LCR_2_STOP_BITS  4      /* Bits to set 2 stop bits */
+#define LCR_5_DATA_BITS  0      /* Bits to set 5 data bits */
+#define LCR_6_DATA_BITS  1      /* Bits to set 6 data bits */
+#define LCR_7_DATA_BITS  2      /* Bits to set 7 data bits */
+#define LCR_8_DATA_BITS  3      /* Bits to set 8 data bits */
+#define MCR              4      /* Modem control register  */
+#define MCR_DTR          1      /* Bit to turn on DTR      */
+#define MCR_RTS          2      /* Bit to turn on RTS      */
+#define MCR_OUT1         4      /* Bit to turn on OUT1     */
+#define MCR_OUT2         8      /* Bit to turn on OUT2     */
+#define MCR_LOOP         16     /* Bit to turn on loopback */
+#define LSR              5      /* Line Status register    */
+#define MSR              6      /* Modem Status register   */
+#define DLL              0      /* Divisor latch LSB       */
+#define DLM              1      /* Divisor latch MSB       */
+#define SCR              7      /* Scratch register        */
+#define FCR              2      /* FIFO Control Register   */
+
 union REGS f5regs;
 struct SREGS f5status;
 
 void fujicom_init(void)
 {
   int base, irq;
+  int divisor;
   long bps = SERIAL_BPS;
   int comp = 1;
 
 
+  // FIXME - allow FUJI_PORT to be "<base>,<irq>" in addition to 1-4
   if (getenv("FUJI_PORT"))
     comp = atoi(getenv("FUJI_PORT"));
   if (getenv("FUJI_BPS"))
     bps = atol(getenv("FUJI_BPS"));
-
-#if defined(DEBUG) || defined(INIT_INFO)
-  consolef("Port: %i  BPS: %li\n", comp, (int32_t) bps);
-#endif
 
   switch (comp) {
   default:
@@ -64,13 +109,12 @@ void fujicom_init(void)
     break;
   }
 
-  port = port_open(&fn_port, base, irq);
-  port_set(port, bps, 'N', 8, 1);
-  port_disable_interrupts(port);
+  divisor = 115200L / bps;
+#if defined(DEBUG) || defined(INIT_INFO)
+  consolef("Port: %xH  BPS: %ld/%d\n", base, (int32_t) bps, divisor);
+#endif
 
-#ifndef PRE_FEP004
-  port_set_dtr(port, 1);
-#endif /* PRE_FEP004 */
+  port_init(base, divisor);
 
   return;
 }
@@ -305,13 +349,13 @@ static fujibus_packet *fb_packet;
 const uint8_t fuji_field_numbytes_table[] = {0, 1, 2, 3, 4, 2, 4, 4};
 #define fuji_field_numbytes(descr) fuji_field_numbytes_table[descr]
 
-int port_discard_until(PORT far *port, uint8_t c, uint16_t timeout)
+int port_discard_until(uint8_t c, uint16_t timeout)
 {
   int code;
 
 
   while (1) {
-    code = port_getc_nobuf(port, TIMEOUT_SLOW);
+    code = port_getc_timeout(TIMEOUT_SLOW);
     if (code < 0 || code == SLIP_END)
       break;
   }
@@ -319,8 +363,7 @@ int port_discard_until(PORT far *port, uint8_t c, uint16_t timeout)
   return code;
 }
 
-uint16_t port_get_until(PORT far *port, void *buf, uint16_t maxlen, uint8_t endc,
-                        uint16_t timeout)
+uint16_t port_get_until(void *buf, uint16_t maxlen, uint8_t endc, uint16_t timeout)
 {
   int c;
   uint16_t idx;
@@ -328,7 +371,7 @@ uint16_t port_get_until(PORT far *port, void *buf, uint16_t maxlen, uint8_t endc
 
 
   for (idx = 0; idx < maxlen; idx++) {
-    c = port_getc_nobuf(port, timeout);
+    c = port_getc_timeout(timeout);
     if (c < 0)
       break;
     ptr[idx] = c;
@@ -470,24 +513,39 @@ bool fuji_bus_call(uint8_t device, uint8_t fuji_cmd, uint8_t fields,
 
   numbytes = fuji_slip_encode();
 
-  port_putbuf(port, fb_buffer, numbytes);
-  code = port_discard_until(port, SLIP_END, TIMEOUT_SLOW);
-  if (code != SLIP_END)
+  port_putbuf(fb_buffer, numbytes);
+  code = port_discard_until(SLIP_END, TIMEOUT_SLOW);
+  if (code != SLIP_END) {
+#ifdef DEBUG
+    consolef("NO SLIP BEGIN %x\n", code);
+#endif
     return false;
+  }
 
-  rlen = port_get_until(port, fb_packet,
-                        (fb_buffer + sizeof(fb_buffer)) - ((uint8_t *) fb_packet),
+  rlen = port_get_until(fb_packet, (fb_buffer + sizeof(fb_buffer)) - ((uint8_t *) fb_packet),
                         SLIP_END, TIMEOUT_SLOW);
+#ifdef DEBUG
+  consolef("RECEIVED LEN %d\n", rlen);
+  dumpHex(fb_packet, rlen, 0);
+#endif
   rlen = fuji_slip_decode(rlen);
-  if (rlen != fb_packet->header.length)
+  if (rlen != fb_packet->header.length) {
+#ifdef DEBUG
+    consolef("SHORT PACKET R:%d E:%d\n", rlen, fb_packet->header.length);
+#endif
     return false;
+  }
 
   // Need to zero out checksum in order to calculate
   ck1 = fb_packet->header.checksum;
   fb_packet->header.checksum = 0;
   ck2 = fuji_calc_checksum(fb_packet, rlen);
-  if (ck1 != ck2)
+  if (ck1 != ck2) {
+#ifdef DEBUG
+    consolef("CHECKSUM MISMATCH C:%02x E:%02x\n", ck1, ck2);
+#endif
     return false;
+  }
 
   // FIXME - validate that fb_packet->fields is zero?
 
@@ -503,11 +561,6 @@ bool fuji_bus_call(uint8_t device, uint8_t fuji_cmd, uint8_t fields,
 
 void fujicom_done(void)
 {
-#ifndef PRE_FEP004
-  port_set_dtr(port, 0);
-#endif /* PRE_FEP004 */
-
-  port_close(port);
   return;
 }
 
@@ -531,3 +584,34 @@ int fujiF5(uint8_t direction, uint8_t device, uint8_t command, uint8_t descr,
   return f5regs.x.ax;
 }
 #endif
+
+// FIXME - doesn't belong in this file
+int port_identify_uart()
+{
+  int val;
+
+  /* Check if UART has scratch register, 16450 and up do */
+  outportb(port_uart_base + 7, 0x55);
+  val = inportb(port_uart_base + SCR);
+  if (val != 0x55)
+    return UART_8250;
+  outportb(port_uart_base + 7, 0xAA);
+  val = inportb(port_uart_base + SCR);
+  if (val != 0xAA)
+    return UART_8250;
+
+  /* Check if FIFO can be enabled, doesn't work on 8250/16450 */
+  outportb(port_uart_base + FCR, 0x01);
+  val = inportb(port_uart_base + IIR);
+  val >>= 6; // Isolate FIFO status bits
+  if (!val)
+    return UART_16450;
+
+  if (val != 3) {
+    /* FIFOs don't work on UART_16550, turn it off */
+    outportb(port_uart_base + FCR, 0x00);
+    return UART_16550;
+  }
+
+  return UART_16550A;
+}
