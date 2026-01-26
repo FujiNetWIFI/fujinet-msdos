@@ -6,7 +6,8 @@ CC      = wcc -q
 CFLAGS  = -0 -bt=dos -ms -s -osh -zu $(CPPFLAGS)
 LIB     = wlib -q
 
-CFILES  = fujicom.c com.c
+CFILES  = fujicom.c
+AFILES   = portio.asm
 OBJS = $(CFILES:.c=.obj) $(AFILES:.asm=.obj)
 
 $(TARGET): $(OBJS)
