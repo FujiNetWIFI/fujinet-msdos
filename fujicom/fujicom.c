@@ -349,6 +349,7 @@ static fujibus_packet *fb_packet;
 const uint8_t fuji_field_numbytes_table[] = {0, 1, 2, 3, 4, 2, 4, 4};
 #define fuji_field_numbytes(descr) fuji_field_numbytes_table[descr]
 
+#if 0
 int port_discard_until(uint8_t c, uint16_t timeout)
 {
   int code;
@@ -381,6 +382,7 @@ uint16_t port_get_until(void *buf, uint16_t maxlen, uint8_t endc, uint16_t timeo
 
   return idx;
 }
+#endif
 
 /* This function expects that fb_packet is one byte into fb_buffer so
    that there's already room at the front for the SLIP_END framing
@@ -434,7 +436,13 @@ uint16_t fuji_slip_decode(uint16_t len)
 
 
   ptr = (uint8_t *) fb_packet;
-  for (idx = dec_idx = 0; idx < len; idx++, dec_idx++) {
+  for (idx = 0; idx < len; idx++) {
+    if (ptr[idx] == SLIP_END)
+      break;
+  }
+  idx++;
+
+  for (dec_idx = 0; idx < len; idx++, dec_idx++) {
     if (ptr[idx] == SLIP_END)
       break;
 
@@ -512,8 +520,11 @@ bool fuji_bus_call(uint8_t device, uint8_t fuji_cmd, uint8_t fields,
   fb_packet->header.checksum = ck1;
 
   numbytes = fuji_slip_encode();
-
   port_putbuf(fb_buffer, numbytes);
+
+#if 1
+  rlen = port_getbuf_sentinel(fb_packet, sizeof(fb_buffer), TIMEOUT_SLOW, SLIP_END, 2);
+#else
   code = port_discard_until(SLIP_END, TIMEOUT_SLOW);
   if (code != SLIP_END) {
 #ifdef DEBUG
@@ -524,7 +535,9 @@ bool fuji_bus_call(uint8_t device, uint8_t fuji_cmd, uint8_t fields,
 
   rlen = port_get_until(fb_packet, (fb_buffer + sizeof(fb_buffer)) - ((uint8_t *) fb_packet),
                         SLIP_END, TIMEOUT_SLOW);
-#ifdef DEBUG
+#endif
+
+#if 0 //def DEBUG
   consolef("RECEIVED LEN %d\n", rlen);
   dumpHex(fb_packet, rlen, 0);
 #endif

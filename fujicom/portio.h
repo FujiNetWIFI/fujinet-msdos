@@ -20,6 +20,9 @@ extern void cdecl port_init(uint16_t base, uint16_t divisor);
 extern int cdecl port_getc();
 extern int cdecl port_getc_timeout(uint16_t timeout);
 extern uint16_t cdecl port_getbuf(void *buf, uint16_t len, uint16_t timeout);
+extern uint16_t cdecl port_getbuf_sentinel(void *buf, uint16_t len, uint16_t timeout,
+                                           uint8_t sentinel, uint16_t sentinel_count);
+
 
 extern int cdecl port_putc(uint8_t c);
 extern uint16_t cdecl port_putbuf(const void *buf, uint16_t len);
