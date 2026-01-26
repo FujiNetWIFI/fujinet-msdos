@@ -56,6 +56,7 @@ MCR_OUT2	EQU	08h		; OUT2 (enables interrupts on PC)
 	PUBLIC	_port_getc
 	PUBLIC	_port_getc_timeout
 	PUBLIC	_port_getbuf
+	PUBLIC	_port_getbuf_sentinel
 	PUBLIC	_port_putc
 	PUBLIC	_port_putbuf
 	PUBLIC	_port_uart_base
@@ -317,6 +318,137 @@ getb_done:
 	pop	bp
 	ret
 _port_getbuf	ENDP
+
+;-----------------------------------------------------------------------------
+; uint16_t port_getbuf_sentinel(void *buf, uint16_t len, uint16_t timeout,
+;				 uint8_t sentinel, uint16_t sentinel_count)
+; Read multiple characters into buffer, stopping when:
+;   - sentinel byte seen sentinel_count times, OR
+;   - len bytes received, OR
+;   - timeout expires
+; Parameters: buf (pointer), len (word), timeout (word in ms),
+;	      sentinel (byte), sentinel_count (word)
+; Returns: Number of characters actually read in AX
+;
+; Register usage:
+;   AX = scratch (UART data, calculations)
+;   BX = timeout in ticks (constant)
+;   CX = remaining characters to read (counts down to 0)
+;   DX = UART port addresses
+;   DI = buffer pointer (auto-incremented)
+;   SI = end tick count for current character timeout
+;   BP = stack frame pointer
+;   ES = segment 40h (BIOS data area for tick counter)
+;   Stack: [bp-2] = sentinel_count remaining
+;	   [bp-4] = sentinel byte (extended to word)
+;-----------------------------------------------------------------------------
+_port_getbuf_sentinel PROC NEAR
+	push	bp
+	mov	bp, sp
+	sub	sp, 4			; Allocate 4 bytes for local vars
+	push	bx
+	push	cx
+	push	dx
+	push	di
+	push	si
+	push	es
+
+	mov	di, [bp+4]		; Get buffer pointer
+	mov	cx, [bp+6]		; CX = requested length (countdown)
+
+	; Handle zero length case immediately
+	test	cx, cx
+	jz	getbs_done
+
+	; Save sentinel parameters as local variables
+	mov	al, [bp+10]		; Get sentinel byte
+	xor	ah, ah
+	mov	[bp-4], ax		; Save sentinel (extended to word)
+	mov	ax, [bp+12]		; Get sentinel_count
+	mov	[bp-2], ax		; Save sentinel_count remaining
+
+	; Convert timeout from ms to ticks once (timeout / 55)
+	mov	ax, [bp+8]		; Get timeout parameter in ms
+	xor	dx, dx
+	push	cx
+	mov	cx, 55
+	div	cx			; AX = timeout in ticks
+	pop	cx
+	mov	bx, ax			; BX = timeout in ticks
+
+	push	cx			; Save original length on stack
+
+	; Set ES to BIOS data segment for tick counter access
+	mov	ax, 40h
+	mov	es, ax
+
+getbs_read_loop:
+	; Get start time for this character
+	mov	si, es:[6Ch]		; SI = start tick count
+	add	si, bx			; SI = end tick count
+	mov	dx, _port_uart_base
+	add	dx, UART_LSR_OFF
+
+getbs_wait_char:
+	cli
+	mov	ah, 32
+
+getbs_skip_timeout:
+	in	al, dx
+	test	al, LSR_DR
+	jnz	getbs_got_char
+
+	dec	ah
+	jnz	getbs_skip_timeout	; Don't need to check timeout constantly
+
+	; Check if timeout expired
+	sti
+	mov	ax, es:[6Ch]		; Get current tick count
+	cmp	ax, si			; Compare current to end time
+	jb	getbs_wait_char		; Continue if not expired
+
+	; Timeout - return what we have
+	jmp	getbs_done
+
+getbs_got_char:
+	mov	dx, _port_uart_base
+	add	dx, UART_RBR_OFF
+	in	al, dx
+	mov	ds:[di], al		; Write to DS segment where buffer is
+	inc	di
+
+	; Check if this is the sentinel byte
+	cmp	al, byte ptr [bp-4]
+	jne	getbs_not_sentinel
+
+	; Found sentinel - decrement count
+	dec	word ptr [bp-2]
+	jz	getbs_sentinel_done	; If count reached 0, we're done
+
+getbs_not_sentinel:
+	dec	cx
+	jnz	getbs_read_loop		; Continue if more chars to read
+	jmp	getbs_done
+
+getbs_sentinel_done:
+	; Found all sentinels - exit normally
+	dec	cx			; Account for the last character
+
+getbs_done:
+	sti
+	pop	ax			; AX = original length
+	sub	ax, cx			; AX = chars read (original - remaining)
+
+	pop	es
+	pop	si
+	pop	di
+	pop	dx
+	pop	cx
+	pop	bx
+	mov	sp, bp			; Deallocate local variables
+	pop	bp
+	ret
+_port_getbuf_sentinel ENDP
 
 ;-----------------------------------------------------------------------------
 ; int port_putc(uint8_t c)
