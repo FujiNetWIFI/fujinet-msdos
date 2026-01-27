@@ -57,6 +57,7 @@ uint8_t get_fujinet_version();
 uint8_t get_set_time(uint8_t set_flag);
 void check_uart();
 uint16_t parse_config(const uint8_t far *config_sys);
+void find_drive_letter(uint8_t num_units);
 
 uint16_t Init_cmd(SYSREQ far *req)
 {
@@ -120,6 +121,8 @@ uint16_t Init_cmd(SYSREQ far *req)
     req->bpb.table = MK_FP(getCS(), fn_bpb_pointers);
   }
 
+  find_drive_letter(req->init.num_units);
+
   setf5();
   consolef("INT F5 Functions installed.\n");
 
@@ -139,7 +142,7 @@ uint8_t get_fujinet_version()
   reply = fujicom_command_read(&cmd, (uint8_t *) &config, sizeof(config));
 
   if (reply != 'C') {
-    consolef("Unable to get FujiNet version %i.\nAborted.\n", reply);
+    consolef("Unable to get FujiNet version. ERR=%d\nAborted.\n", reply);
     return 1;
   }
 
@@ -318,4 +321,22 @@ uint16_t parse_config(const uint8_t far *config_sys)
 
  done:
   return buf - (char *) &config_env;
+}
+
+void find_drive_letter(uint8_t num_units)
+{
+  uint8_t far *lol;
+  char first;
+
+  _asm {
+    mov ah, 52h
+      int 21h
+      mov word ptr lol, bx
+      mov word ptr lol+2, es
+      }
+
+  // Undocumented but reliable field:
+  // The number of current block devices in the List of Lists at 0x20
+  first = lol[0x20] + 'A';
+  consolef("FujiNet attached to drives %c:-%c:\n", first, first + num_units - 1);
 }
