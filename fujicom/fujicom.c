@@ -539,7 +539,8 @@ bool fuji_bus_call(uint8_t device, uint8_t fuji_cmd, uint8_t fields,
 
 #if 0 //def DEBUG
   consolef("RECEIVED LEN %d\n", rlen);
-  dumpHex(fb_packet, rlen, 0);
+  if (rlen)
+    dumpHex(fb_packet, rlen, 0);
 #endif
   rlen = fuji_slip_decode(rlen);
   if (rlen != fb_packet->header.length) {
