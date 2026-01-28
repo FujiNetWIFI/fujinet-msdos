@@ -374,9 +374,14 @@ _port_getbuf_sentinel PROC NEAR
 	mov	cx, 55
 	div	cx			; AX = timeout in ticks
 	pop	cx
-	mov	bx, ax			; BX = timeout in ticks
+	push	ax			; Save timeout in ticks on stack
 
 	push	cx			; Save original length on stack
+
+	; Load sentinel byte into BL for fast access
+	mov	bl, byte ptr [bp-4]	; BL = sentinel byte
+	mov	bh, bl
+	not	bh			; BH = inverted sentinel (can't match on first byte)
 
 	; Set ES to BIOS data segment for tick counter access
 	mov	ax, 40h
@@ -385,7 +390,7 @@ _port_getbuf_sentinel PROC NEAR
 getbs_read_loop:
 	; Get start time for this character
 	mov	si, es:[6Ch]		; SI = start tick count
-	add	si, bx			; SI = end tick count
+	add	si, [bp-6]		; Add timeout ticks from stack
 	mov	dx, _port_uart_base
 	add	dx, UART_LSR_OFF
 
@@ -418,14 +423,24 @@ getbs_got_char:
 	inc	di
 
 	; Check if this is the sentinel byte
-	cmp	al, byte ptr [bp-4]
-	jne	getbs_not_sentinel
+	cmp	al, bl			; Compare to sentinel in BL
+	jne	getbs_continue		; Not sentinel, just continue
 
-	; Found sentinel - decrement count
+	; It's a sentinel - check if previous (in BH) was also sentinel
+	cmp	bh, bl			; Was previous also sentinel?
+	jne	getbs_normal_sentinel	; No, count this one normally
+
+	; Two sentinels in a row - zero out previous and skip decrement
+	mov	byte ptr ds:[di-2], 0
+	jmp	getbs_continue
+
+getbs_normal_sentinel:
+	; Normal sentinel - count it
 	dec	word ptr [bp-2]
 	jz	getbs_sentinel_done	; If count reached 0, we're done
 
-getbs_not_sentinel:
+getbs_continue:
+	mov	bh, al			; Always save current char as previous
 	dec	cx
 	jnz	getbs_read_loop		; Continue if more chars to read
 	jmp	getbs_done
