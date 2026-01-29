@@ -332,10 +332,10 @@ bool fuji_bus_call(uint8_t device, uint8_t fuji_cmd, uint8_t fields,
   if (rlen)
     dumpHex(fb_packet, rlen, 0);
 #endif
-  rlen = fuji_slip_decode(rlen);
-  if (rlen < sizeof(fujibus_header) || rlen != fb_packet->header.length) {
+  numbytes = fuji_slip_decode(rlen);
+  if (numbytes < sizeof(fujibus_header) || numbytes != fb_packet->header.length) {
 #ifdef DEBUG
-    consolef("SHORT PACKET R:%d E:%d\n", rlen, fb_packet->header.length);
+    consolef("SHORT PACKET R:%d N:%d E:%d\n", rlen, numbytes, fb_packet->header.length);
 #endif
     return false;
   }
@@ -343,7 +343,7 @@ bool fuji_bus_call(uint8_t device, uint8_t fuji_cmd, uint8_t fields,
   // Need to zero out checksum in order to calculate
   ck1 = fb_packet->header.checksum;
   fb_packet->header.checksum = 0;
-  ck2 = fuji_calc_checksum(fb_packet, rlen);
+  ck2 = fuji_calc_checksum(fb_packet, numbytes);
   if (ck1 != ck2) {
 #ifdef DEBUG
     consolef("CHECKSUM MISMATCH C:%02x E:%02x\n", ck1, ck2);
@@ -353,10 +353,10 @@ bool fuji_bus_call(uint8_t device, uint8_t fuji_cmd, uint8_t fields,
 
   // FIXME - validate that fb_packet->fields is zero?
 
-  if (reply_length && rlen) {
-    if (reply_length < rlen)
-      rlen = reply_length;
-    _fmemcpy(reply, fb_packet->data, rlen);
+  if (reply_length && numbytes) {
+    if (reply_length < numbytes)
+      numbytes = reply_length;
+    _fmemcpy(reply, fb_packet->data, numbytes);
   }
 
   return true;
