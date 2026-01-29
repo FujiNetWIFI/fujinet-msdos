@@ -143,7 +143,7 @@ uint16_t Input_cmd(SYSREQ far *req)
     sector_max = fn_bpb_table[req->unit].num_sectors_32;
 
 #if 0
-  consolef("SECTOR: %i 0x%08lx %i\n", req->length, sector, req->io.count);
+  consolef("SECTOR: %i 0x%08lx %i SM: %i\n", req->length, sector, req->io.count, sector_max);
 #endif
 
   for (idx = 0; idx < req->io.count; idx++, sector++) {
