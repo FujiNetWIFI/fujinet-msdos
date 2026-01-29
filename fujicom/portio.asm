@@ -61,6 +61,17 @@ MCR_OUT2	EQU	08h		; OUT2 (enables interrupts on PC)
 	PUBLIC	_port_putbuf
 	PUBLIC	_port_uart_base
 
+; Debug helper - write character to QEMU debug port 0xE9
+qemu_debug_char PROC	NEAR
+	push	dx
+	push	ax
+	mov	dx, 0E9h
+	out	dx, al
+	pop	ax
+	pop	dx
+	ret
+qemu_debug_char ENDP
+
 ;-----------------------------------------------------------------------------
 ; void port_init(uint16_t base, uint16_t divisor)
 ; Initialize the UART for specified baud rate, 8N1
@@ -419,6 +430,12 @@ getbs_got_char:
 	mov	dx, _port_uart_base
 	add	dx, UART_RBR_OFF
 	in	al, dx
+
+	; DEBUG: Print the character received
+	push	ax
+	call	qemu_debug_char		; Print the actual char
+	pop	ax
+
 	mov	ds:[di], al		; Write to DS segment where buffer is
 	inc	di
 
@@ -426,9 +443,21 @@ getbs_got_char:
 	cmp	al, bl			; Compare to sentinel in BL
 	jne	getbs_continue		; Not sentinel, just continue
 
+	; DEBUG: Print 'S' for sentinel detected
+	push	ax
+	mov	al, 'S'
+	call	qemu_debug_char
+	pop	ax
+
 	; It's a sentinel - check if previous (in BH) was also sentinel
 	cmp	bh, bl			; Was previous also sentinel?
 	jne	getbs_normal_sentinel	; No, count this one normally
+
+	; DEBUG: Print 'N' for nullified sentinel
+	push	ax
+	mov	al, 'N'
+	call	qemu_debug_char
+	pop	ax
 
 	; Two sentinels in a row - zero out previous and skip decrement
 	mov	byte ptr ds:[di-2], 0
