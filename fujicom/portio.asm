@@ -431,10 +431,10 @@ getbs_got_char:
 	add	dx, UART_RBR_OFF
 	in	al, dx
 
-	; DEBUG: Print the character received
-	push	ax
-	call	qemu_debug_char		; Print the actual char
-	pop	ax
+	;; ; DEBUG: Print the character received
+	;; push	ax
+	;; call	qemu_debug_char		; Print the actual char
+	;; pop	ax
 
 	mov	ds:[di], al		; Write to DS segment where buffer is
 	inc	di
@@ -443,21 +443,21 @@ getbs_got_char:
 	cmp	al, bl			; Compare to sentinel in BL
 	jne	getbs_continue		; Not sentinel, just continue
 
-	; DEBUG: Print 'S' for sentinel detected
-	push	ax
-	mov	al, 'S'
-	call	qemu_debug_char
-	pop	ax
+	;; ; DEBUG: Print 'S' for sentinel detected
+	;; push	ax
+	;; mov	al, 'S'
+	;; call	qemu_debug_char
+	;; pop	ax
 
 	; It's a sentinel - check if previous (in BH) was also sentinel
 	cmp	bh, bl			; Was previous also sentinel?
 	jne	getbs_normal_sentinel	; No, count this one normally
 
-	; DEBUG: Print 'N' for nullified sentinel
-	push	ax
-	mov	al, 'N'
-	call	qemu_debug_char
-	pop	ax
+	;; ; DEBUG: Print 'N' for nullified sentinel
+	;; push	ax
+	;; mov	al, 'N'
+	;; call	qemu_debug_char
+	;; pop	ax
 
 	; Two sentinels in a row - zero out previous and skip decrement
 	mov	byte ptr ds:[di-2], 0
