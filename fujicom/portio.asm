@@ -61,16 +61,16 @@ MCR_OUT2	EQU	08h		; OUT2 (enables interrupts on PC)
 	PUBLIC	_port_putbuf
 	PUBLIC	_port_uart_base
 
-; Debug helper - write character to QEMU debug port 0xE9
-qemu_debug_char PROC	NEAR
-	push	dx
-	push	ax
-	mov	dx, 0E9h
-	out	dx, al
-	pop	ax
-	pop	dx
-	ret
-qemu_debug_char ENDP
+;; ; Debug helper - write character to QEMU debug port 0xE9
+;; qemu_debug_char PROC	NEAR
+;; 	push	dx
+;; 	push	ax
+;; 	mov	dx, 0E9h
+;; 	out	dx, al
+;; 	pop	ax
+;; 	pop	dx
+;; 	ret
+;; qemu_debug_char ENDP
 
 ;-----------------------------------------------------------------------------
 ; void port_init(uint16_t base, uint16_t divisor)
