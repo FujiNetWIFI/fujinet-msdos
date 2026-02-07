@@ -110,11 +110,10 @@ void fujicom_init(void)
   }
 
   divisor = 115200L / bps;
-#if defined(DEBUG) || defined(INIT_INFO)
-  consolef("Port: %xH  BPS: %ld/%d\n", base, (int32_t) bps, divisor);
-#endif
-
   port_init(base, divisor);
+#if defined(DEBUG) || defined(INIT_INFO)
+  consolef("Port: %xh  BPS: %ld/%d\n", port_uart_base, (int32_t) bps, divisor);
+#endif
 
   return;
 }
