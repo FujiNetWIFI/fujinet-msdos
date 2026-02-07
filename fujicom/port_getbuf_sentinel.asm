@@ -45,10 +45,6 @@ ARG_TIMEOUT		EQU	[bp+8]
 ARG_SENTINEL		EQU	[bp+10]
 ARG_SENTCOUNT		EQU	[bp+12]
 
-VAR_SENTCOUNT		EQU	[bp-14]
-VAR_TIMEOUT_TICKS	EQU	[bp-16]
-VAR_ORIGLEN		EQU	[bp-18]
-
 _port_getbuf_sentinel PROC NEAR
 	push	bp			; [bp-0]
 	mov	bp, sp
@@ -66,11 +62,6 @@ _port_getbuf_sentinel PROC NEAR
 	test	cx, cx
 	jz	getbs_done
 
-	;; FIXME - why do we need this? Update ARG_SENTCOUNT in place
-	; Load sentinel_count into a temp location (we'll use stack)
-	mov	ax, ARG_SENTCOUNT	; Get sentinel_count
-	push	ax			; [bp-14] VAR_SENTCOUNT Save it on stack for dec operations
-
 	; Convert timeout from ms to ticks once (timeout / 55)
 	mov	ax, ARG_TIMEOUT		; Get timeout parameter in ms
 	xor	dx, dx
@@ -78,8 +69,7 @@ _port_getbuf_sentinel PROC NEAR
 	mov	cx, 55
 	div	cx			; AX = timeout in ticks
 	pop	cx			; [bp-16]
-	;; FIXME - why do we need this? Update ARG_TIMEOUT in place
-	push	ax			; [bp-16] VAR_TIMEOUT_TICKS Save timeout in ticks on stack
+	mov	ARG_TIMEOUT, ax		; save conterted timeout
 
 	;; ; DEBUG: Print the timeout
 	;; push	ax
@@ -91,9 +81,6 @@ _port_getbuf_sentinel PROC NEAR
 	;; ;; mov	al, ah
 	;; ;; call	qemu_debug_char		; Print high byte
 	;; pop	ax
-
-	;; FIXME - why do we need this? ARG_LEN is still on the stack
-	push	cx			; [bp-18] VAR_ORIGLEN Save original length on stack
 
 	; Load sentinel byte into BL for fast access
 	mov	bl, byte ptr ARG_SENTINEL ; BL = sentinel byte
@@ -110,7 +97,7 @@ getbs_read_loop:
 
 	;; ; DEBUG: Print the timeout
 	;; push	ax
-	;; mov	ax, VAR_TIMEOUT_TICKS
+	;; mov	ax, ARG_TIMEOUT_TICKS
 	;; call	qemu_debug_char		; Print low byte
 	;; mov	al, ah
 	;; call	qemu_debug_char		; Print high byte
@@ -120,7 +107,7 @@ getbs_read_loop:
 	;; call	qemu_debug_char		; Print high byte
 	;; pop	ax
 
-	add	si, VAR_TIMEOUT_TICKS	; Add timeout ticks from stack
+	add	si, ARG_TIMEOUT
 
 	;; ; DEBUG: Print the timeout
 	;; push	ax
@@ -206,7 +193,7 @@ getbs_got_char:
 	jmp	getbs_continue
 
 getbs_count_sentinel:
-	dec	word ptr VAR_SENTCOUNT	; Decrement sentinel counter on stack
+	dec	word ptr ARG_SENTCOUNT	; Decrement sentinel counter on stack
 	jz	getbs_sentinel_done
 
 getbs_continue:
@@ -221,12 +208,8 @@ getbs_sentinel_done:
 
 getbs_done:
 	sti
-	;; FIXME - why did we bother to push this? It's still on the stack as an argument
-	pop	ax			; [bp-18] AX = original length
+	mov	ax, ARG_LEN
 	sub	ax, cx			; AX = chars read (original - remaining)
-
-	pop	bx			; [bp-16]
-	pop	bx			; [bp-14]
 
 	pop	es
 	pop	si
