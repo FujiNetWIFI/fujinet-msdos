@@ -77,12 +77,12 @@ struct SREGS f5status;
 
 void fujicom_init(void)
 {
-  unsigned base, irq;
   unsigned divisor;
   const char *fuji_port, *comma;
   unsigned port_len;
   unsigned long bps = SERIAL_BPS;
   int comp = 1;
+  unsigned base = COM1_UART, irq = COM1_INTERRUPT;
 
 
   // FIXME - allow FUJI_PORT to be "<base>,<irq>" in addition to 1-4
@@ -101,14 +101,9 @@ void fujicom_init(void)
       base = strtoul(fuji_port + 2, NULL, 16);
     else if (tolower(fuji_port[port_len - 1]) == 'h')
       base = strtoul(fuji_port, NULL, 16);
-    else {
+    else
       comp = atoi(fuji_port);
       switch (comp) {
-      default:
-      case 1:
-        base = COM1_UART;
-        irq = COM1_INTERRUPT;
-        break;
       case 2:
         base = COM2_UART;
         irq = COM2_INTERRUPT;
