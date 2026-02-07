@@ -9,6 +9,8 @@
 #include "portio.h"
 #include <dos.h>
 #include <string.h>
+#include <strings.h>
+#include <ctype.h>
 
 #if defined(DEBUG) || defined(INIT_INFO)
 #include "../sys/print.h" // debug
@@ -97,7 +99,7 @@ void fujicom_init(void)
     else
       port_len = strlen(fuji_port);
 
-    if (!strcasecmp(fuji_port, "0x", 2))
+    if (!strncasecmp(fuji_port, "0x", 2))
       base = strtoul(fuji_port + 2, NULL, 16);
     else if (tolower(fuji_port[port_len - 1]) == 'h')
       base = strtoul(fuji_port, NULL, 16);
