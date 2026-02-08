@@ -101,7 +101,7 @@ void fujicom_init(void)
       base = strtoul(fuji_port + 2, NULL, 16);
     else if (tolower(fuji_port[port_len - 1]) == 'h')
       base = strtoul(fuji_port, NULL, 16);
-    else
+    else {
       comp = atoi(fuji_port);
       switch (comp) {
       case 2:
