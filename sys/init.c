@@ -2,6 +2,7 @@
 #include "fujinet.h"
 #include "fujicom.h"
 #include "portio.h"
+#include "id8250.h"
 #include "print.h"
 #include "dispatch.h"
 #include <stdint.h>
