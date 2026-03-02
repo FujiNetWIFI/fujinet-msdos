@@ -366,8 +366,10 @@ bool fuji_bus_call(uint8_t device, uint8_t fuji_cmd, uint8_t fields,
     return false;
   }
 
-  if (fb_packet->header.command != PACKET_ACK)
+  if (fb_packet->header.command != PACKET_ACK) {
+    consolef("NOT ACK 0x%02X\n", fb_packet->header.command);
     return false;
+  }
 
   // FIXME - validate that fb_packet->fields is zero?
 
