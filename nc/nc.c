@@ -37,6 +37,7 @@ void nc_status(void)
     r.h.al = 0x71;
     r.x.cx = 0x0000;
     r.x.si = 0x0000;
+    r.h.dh = 0;
     sr.es = FP_SEG(&status);
     r.x.bx = FP_OFF(&status);
     r.x.di = sizeof(status);
@@ -59,6 +60,7 @@ int nc(char *s)
     r.h.cl = 0x0c;
     r.h.ch = 0x00;
     r.x.si = 0x0000;
+    r.h.dh = 2;
     sr.es = FP_SEG(url);
     r.x.bx = FP_OFF(url);
     r.x.di = sizeof(url);
@@ -67,20 +69,19 @@ int nc(char *s)
 
     err = r.h.al;
 
-    printf("Open Returned: 0x%02x",err);
+    printf("Open Returned: 0x%02x\n",err);
 
-    if (r.h.al != 'C')
+    /* get initial status */
+    nc_status();
+
+    if (err != 'C')
     {
         /* Get error from status */
-        nc_status();
         printf("\nCould not open URL, error: %u\n",status.err);
         goto bye;
     }
 
-	/* connected, get initial status */
-
-    nc_status();
-
+    printf("Conn: %d\n", status.connected);
     while(status.connected)
     {
         int i=0;
@@ -102,6 +103,7 @@ int nc(char *s)
             r.h.al = 0x71;
             r.x.cx = 0x0001;
             r.x.si = 0x0000;
+            r.h.dh = 5;
             sr.es = FP_SEG(txbuf);
             r.x.bx = FP_OFF(txbuf);
             r.x.di = i;
@@ -124,6 +126,7 @@ int nc(char *s)
         r.h.al = 0x71;
         r.x.cx = bw;
         r.x.si = 0x0000;
+        r.h.dh = 5;
         sr.es = FP_SEG(buf);
         r.x.bx = FP_OFF(buf);
         r.x.di = bw;
@@ -131,6 +134,7 @@ int nc(char *s)
 
         for (i=0;i<bw;i++)
             putchar(buf[i]);
+        fflush(stdout);
     }
 
 bye:
@@ -142,6 +146,7 @@ bye:
     r.h.al = 0x71;
     r.x.cx = 0x0000;
     r.x.si = 0x0000;
+    r.h.dh = 0;
     int86(0xF5,&r,&r);
 
     err = r.h.al;

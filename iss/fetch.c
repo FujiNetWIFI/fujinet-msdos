@@ -94,7 +94,7 @@ void fetch(char *lat, char *lon, unsigned long *ts)
     r.h.al = 0x71;
     r.x.cx = 0x0000;
     r.x.si = 0x0000;
-    r.h.dl = 0;
+    r.h.dh = 0;
     int86(0xF5,&r,&r);
 
     /* Query and fetch data */
