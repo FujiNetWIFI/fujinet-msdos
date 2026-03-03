@@ -121,9 +121,9 @@ errcode fujifs_open_url(fujifs_handle far *host_handle, const char *url,
     strcpy(hhp->password, password);
 
   // User/pass is "sticky" and needs to be set/reset on open
-  reply = fujiF5_write(NETDEV(temp), CMD_USERNAME, 0, 0, hhp->user, OPEN_SIZE);
+  reply = fujiF5_write(NETDEV(temp), CMD_USERNAME, FUJI_FIELD_NONE, 0, 0, hhp->user, OPEN_SIZE);
   // FIXME - check err
-  reply = fujiF5_write(NETDEV(temp), CMD_PASSWORD, 0, 0, hhp->password, OPEN_SIZE);
+  reply = fujiF5_write(NETDEV(temp), CMD_PASSWORD, FUJI_FIELD_NONE, 0, 0, hhp->password, OPEN_SIZE);
   // FIXME - check err
 
   // This wasn't an open commend so no need to close, just mark it
@@ -175,9 +175,9 @@ errcode fujifs_open(fujifs_handle host_handle, fujifs_handle far *file_handle,
 
 
     if (hhp->user[0] && (!fhp->did_auth || host_handle != fhp->parent)) {
-      reply = fujiF5_write(NETDEV(*file_handle), CMD_USERNAME, 0, 0, hhp->user, OPEN_SIZE);
+      reply = fujiF5_write(NETDEV(*file_handle), CMD_USERNAME, FUJI_FIELD_NONE, 0, 0, hhp->user, OPEN_SIZE);
       // FIXME - check err
-      reply = fujiF5_write(NETDEV(*file_handle), CMD_PASSWORD, 0, 0, hhp->password, OPEN_SIZE);
+      reply = fujiF5_write(NETDEV(*file_handle), CMD_PASSWORD, FUJI_FIELD_NONE, 0, 0, hhp->password, OPEN_SIZE);
       // FIXME - check err
       fhp->did_auth = 1;
     }
@@ -187,7 +187,7 @@ errcode fujifs_open(fujifs_handle host_handle, fujifs_handle far *file_handle,
 
 
       // Get prefix of parent
-      reply = fujiF5_read(NETDEV(host_handle), CMD_GETCWD, 0, 0, fujifs_buf, OPEN_SIZE);
+      reply = fujiF5_read(NETDEV(host_handle), CMD_GETCWD, FUJI_FIELD_NONE, 0, 0, fujifs_buf, OPEN_SIZE);
       if (reply != REPLY_COMPLETE) {
         return NETWORK_ERROR_SERVICE_NOT_AVAILABLE;
       }
@@ -198,7 +198,7 @@ errcode fujifs_open(fujifs_handle host_handle, fujifs_handle far *file_handle,
       // FIXME - check err
 
       // Set prefix of new handle
-      reply = fujiF5_write(NETDEV(*file_handle), CMD_CHDIR, 0, 0, fujifs_buf, OPEN_SIZE);
+      reply = fujiF5_write(NETDEV(*file_handle), CMD_CHDIR, FUJI_FIELD_NONE, 0, 0, fujifs_buf, OPEN_SIZE);
       // FIXME - check err
     }
 
@@ -207,14 +207,14 @@ errcode fujifs_open(fujifs_handle host_handle, fujifs_handle far *file_handle,
   }
 
   ennify(*file_handle, path);
-  reply = fujiF5_write(NETDEV(*file_handle), CMD_OPEN, mode, 0, fujifs_buf, OPEN_SIZE);
+  reply = fujiF5_write(NETDEV(*file_handle), CMD_OPEN, FUJI_FIELD_A1_A2, mode, 0, fujifs_buf, OPEN_SIZE);
 #if 0
   if (reply != REPLY_COMPLETE)
     printf("FUJIFS_OPEN OPEN REPLY: 0x%02x\n", reply);
   // FIXME - check err
 #endif
 
-  reply = fujiF5_read(NETDEV(*file_handle), CMD_STATUS, 0, 0, &status, sizeof(status));
+  reply = fujiF5_read(NETDEV(*file_handle), CMD_STATUS, FUJI_FIELD_NONE, 0, 0, &status, sizeof(status));
 #if 0
   if (reply != REPLY_COMPLETE)
     printf("FUJIFS_OPEN STATUS REPLY: 0x%02x\n", reply);
@@ -254,7 +254,7 @@ errcode fujifs_close(fujifs_handle handle)
   if (handle < 1 || handle > NETDEV_TOTAL || !FN_HANDLE(handle).is_open)
     return NETWORK_ERROR_NOT_CONNECTED;
 
-  fujiF5_none(NETDEV(handle), CMD_CLOSE, 0, 0, NULL, 0);
+  fujiF5_none(NETDEV(handle), CMD_CLOSE, FUJI_FIELD_NONE, 0, 0, NULL, 0);
   FN_HANDLE(handle).is_open = 0;
   return 0;
 }
@@ -269,7 +269,7 @@ size_t fujifs_read(fujifs_handle handle, uint8_t far *buf, size_t length)
     return 0;
 
   // Check how many bytes are available
-  reply = fujiF5_read(NETDEV(handle), CMD_STATUS, 0, 0, &status, sizeof(status));
+  reply = fujiF5_read(NETDEV(handle), CMD_STATUS, FUJI_FIELD_NONE, 0, 0, &status, sizeof(status));
 #if 0
   if (reply != REPLY_COMPLETE)
     printf("FUJIFS_READ STATUS REPLY: 0x%02x\n", reply);
@@ -287,7 +287,7 @@ size_t fujifs_read(fujifs_handle handle, uint8_t far *buf, size_t length)
   if (length > status.length)
     length = status.length;
 
-  reply = fujiF5_read(NETDEV(handle), CMD_READ, length, 0, buf, length);
+  reply = fujiF5_read(NETDEV(handle), CMD_READ, FUJI_FIELD_B12, length, 0, buf, length);
   if (reply != REPLY_COMPLETE)
     return 0;
   return length;
@@ -307,7 +307,7 @@ size_t fujifs_write(fujifs_handle handle, uint8_t far *buf, size_t length)
   if (length == -1)
     length--;
 
-  reply = fujiF5_write(NETDEV(handle), CMD_WRITE, length, 0, buf, length);
+  reply = fujiF5_write(NETDEV(handle), CMD_WRITE, FUJI_FIELD_B12, length, 0, buf, length);
   if (reply != REPLY_COMPLETE) {
     consolef("FUJIFS_WRITE FAILED %i\n", reply);
     return -1;
@@ -491,7 +491,7 @@ errcode fujifs_seek(fujifs_handle handle, off_t position)
   if (handle < 1 || handle > NETDEV_TOTAL || !FN_HANDLE(handle).is_open)
     return NETWORK_ERROR_NOT_CONNECTED;
 
-  reply = fujiF5_write(NETDEV(handle), CMD_SEEK,
+  reply = fujiF5_write(NETDEV(handle), CMD_SEEK, FUJI_FIELD_C1234,
                        position & 0xffff, (position >> 16) & 0xffff, NULL, 0);
   if (reply != REPLY_COMPLETE)
     return NETWORK_ERROR_SERVICE_NOT_AVAILABLE;
@@ -549,14 +549,14 @@ errcode fujifs_path_operation(fujifs_handle host_handle, uint8_t command, const 
 
 
   ennify(host_handle, path);
-  reply = fujiF5_write(NETDEV(host_handle), command, 0, 0, fujifs_buf, OPEN_SIZE);
+  reply = fujiF5_write(NETDEV(host_handle), command, FUJI_FIELD_NONE, 0, 0, fujifs_buf, OPEN_SIZE);
 #if 0
   if (reply != REPLY_COMPLETE)
     printf("FUJIFS_CHDIR CHDIR REPLY: 0x%02x\n", reply);
   // FIXME - check err
 #endif
 
-  reply = fujiF5_read(NETDEV(host_handle), CMD_STATUS, 0, 0, &status, sizeof(status));
+  reply = fujiF5_read(NETDEV(host_handle), CMD_STATUS, FUJI_FIELD_NONE, 0, 0, &status, sizeof(status));
   // FIXME - for some reason when SMB successfully completes path op
   //         it reports END_OF_FILE with a length of zero
   if (status.errcode == NETWORK_ERROR_END_OF_FILE && !status.length)
