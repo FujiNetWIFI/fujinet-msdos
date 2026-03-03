@@ -28,6 +28,39 @@
 union REGS f5regs;
 struct SREGS f5status;
 
+enum {
+  SLIP_END     = 0xC0,
+  SLIP_ESCAPE  = 0xDB,
+  SLIP_ESC_END = 0xDC,
+  SLIP_ESC_ESC = 0xDD,
+};
+
+enum {
+  PACKET_ACK = 6, // ASCII ACK
+  PACKET_NAK = 21, // ASCII NAK
+};
+
+typedef struct {
+  uint8_t device;   /* Destination Device */
+  uint8_t command;  /* Command */
+  uint16_t length;  /* Total length of packet including header */
+  uint8_t checksum; /* Checksum of entire packet */
+  uint8_t fields;   /* Describes the fields that follow */
+} fujibus_header;
+
+typedef struct {
+  fujibus_header header;
+  uint8_t data[];
+} fujibus_packet;
+
+#define MAX_PACKET      (512 + sizeof(fujibus_header) + 4) // sector + header + secnum
+static uint8_t fb_buffer[MAX_PACKET * 2 + 2];              // Enough room for SLIP encoding
+static fujibus_packet *fb_packet;
+
+// Not worth making these into functions, I'm sure they'd eat more bytes
+const uint8_t fuji_field_numbytes_table[] = {0, 1, 2, 3, 4, 2, 4, 4};
+#define fuji_field_numbytes(descr) fuji_field_numbytes_table[descr]
+
 void fujicom_init(void)
 {
   unsigned divisor;
@@ -83,74 +116,6 @@ void fujicom_init(void)
 
   return;
 }
-
-enum {
-  SLIP_END     = 0xC0,
-  SLIP_ESCAPE  = 0xDB,
-  SLIP_ESC_END = 0xDC,
-  SLIP_ESC_ESC = 0xDD,
-};
-
-enum {
-  PACKET_ACK = 6, // ASCII ACK
-  PACKET_NAK = 21, // ASCII NAK
-};
-
-typedef struct {
-  uint8_t device;   /* Destination Device */
-  uint8_t command;  /* Command */
-  uint16_t length;  /* Total length of packet including header */
-  uint8_t checksum; /* Checksum of entire packet */
-  uint8_t fields;   /* Describes the fields that follow */
-} fujibus_header;
-
-typedef struct {
-  fujibus_header header;
-  uint8_t data[];
-} fujibus_packet;
-
-#define MAX_PACKET      (512 + sizeof(fujibus_header) + 4) // sector + header + secnum
-static uint8_t fb_buffer[MAX_PACKET * 2 + 2];              // Enough room for SLIP encoding
-static fujibus_packet *fb_packet;
-
-// Not worth making these into functions, I'm sure they'd eat more bytes
-const uint8_t fuji_field_numbytes_table[] = {0, 1, 2, 3, 4, 2, 4, 4};
-#define fuji_field_numbytes(descr) fuji_field_numbytes_table[descr]
-
-#if 0
-int port_discard_until(uint8_t c, uint16_t timeout)
-{
-  int code;
-
-
-  while (1) {
-    code = port_getc_timeout(TIMEOUT_SLOW);
-    if (code < 0 || code == SLIP_END)
-      break;
-  }
-
-  return code;
-}
-
-uint16_t port_get_until(void *buf, uint16_t maxlen, uint8_t endc, uint16_t timeout)
-{
-  int c;
-  uint16_t idx;
-  uint8_t *ptr = (uint8_t *) buf;
-
-
-  for (idx = 0; idx < maxlen; idx++) {
-    c = port_getc_timeout(timeout);
-    if (c < 0)
-      break;
-    ptr[idx] = c;
-    if (c == endc)
-      break;
-  }
-
-  return idx;
-}
-#endif
 
 /* This function expects that fb_packet is one byte into fb_buffer so
    that there's already room at the front for the SLIP_END framing
