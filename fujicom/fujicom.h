@@ -18,38 +18,6 @@
 
 #define FUJICOM_TIMEOUT  -1
 
-#ifdef PRE_FEP004
-// FIXME - get these constants and structs from
-//         fujinet-firmware/lib/bus/rs232/rs232.h instead of
-//         redefining them here
-
-#pragma pack(push, 1)
-typedef union {         /* Command Frame */
-  struct {
-    union {
-      struct {
-        uint8_t device; /* Destination Device */
-        uint8_t comnd;  /* Command */
-      };
-      uint16_t devcom;
-    };
-    union {
-      struct {
-        uint8_t aux1;   /* Auxiliary Parameter 1 */
-        uint8_t aux2;   /* Auxiliary Parameter 2 */
-        uint8_t aux3;   /* Auxiliary Parameter 3 */
-        uint8_t aux4;   /* Auxiliary Parameter 4 */
-      };
-      struct {
-        uint16_t aux12;
-        uint16_t aux34;
-      };
-      uint32_t aux;
-    };
-    uint8_t cksum;               /* 8-bit checksum */
-  };
-} cmdFrame_t;
-#else /* ! PRE_FEP004 */
 enum {
   FUJI_FIELD_NONE        = 0,
   FUJI_FIELD_A1          = 1,
@@ -66,7 +34,6 @@ enum {
 
 #define U16_MSB(w) ((uint8_t)(((uint16_t)(w) >> 8) & 0xFF))
 #define U16_LSB(w) ((uint8_t)((uint16_t)(w) & 0xFF))
-#endif /* PRE_FEP004 */
 
 typedef struct {
   uint16_t bw;
@@ -190,42 +157,10 @@ enum {
  */
 extern void fujicom_init(void);
 
-#ifdef PRE_FEP004
-/**
- * @brief calculate 8-bit checksum for cmdFrame_t.dcksum
- * @param buf Buffer to compute checksum against
- * @param len Length of aforementioned buffer
- */
-extern uint8_t fujicom_cksum(void far *ptr, uint16_t len);
-
-/**
- * @brief send FujiNet frame with no payload
- * @param cmdFrame Pointer to command frame
- * @return 'C'omplete, 'E'rror, or 'N'ak
- */
-extern int fujicom_command(cmdFrame_t far *c);
-
-/**
- * @brief send fujinet frame and read payload
- * @param cmdFrame pointer to command frame
- * @param buf Pointer to buffer to receive
- * @param len Expected buffer length
- */
-extern int fujicom_command_read(cmdFrame_t far *c, void far *ptr, uint16_t len);
-
-/**
- * @brief send fujinet frame and write payload
- * @param cmdFrame pointer to command frame
- * @param buf pointer to buffer to send.
- * @param len Length of buffer to send.
- */
-extern int fujicom_command_write(cmdFrame_t far *c, void far *ptr, uint16_t len);
-#else /* ! PRE_FEP004 */
 extern bool fuji_bus_call(uint8_t device, uint8_t fuji_cmd, uint8_t fields,
                           uint8_t aux1, uint8_t aux2, uint8_t aux3, uint8_t aux4,
                           const void far *data, size_t data_length,
                           void far *reply, size_t reply_length);
-#endif /* PRE_FEP004 */
 
 /**
  * @brief end fujicom

@@ -28,6 +28,7 @@ void fetch_query(const char *q, char *result)
     r.h.al = 0x71;
     r.x.cx = 0x0000;
     r.x.si = 0x0000;
+    r.h.dh = 0;
     sr.es = FP_SEG(q);
     r.x.bx = FP_OFF(q);
     r.x.di = 256;
@@ -39,6 +40,7 @@ void fetch_query(const char *q, char *result)
     r.h.al = 0x71;
     r.x.cx = 0x0000;
     r.x.si = 0x0000;
+    r.h.dh = 0;
     sr.es = FP_SEG(&s);
     r.x.bx = FP_OFF(&s);
     r.x.di = sizeof(s);
@@ -50,6 +52,7 @@ void fetch_query(const char *q, char *result)
     r.h.al = 0x71;
     r.x.cx = s.bw;
     r.x.si = 0x0000;
+    r.h.dh = 5;
     sr.es = FP_SEG(result);
     r.x.bx = FP_OFF(result);
     r.x.di = s.bw;
@@ -69,6 +72,7 @@ void fetch(char *lat, char *lon, unsigned long *ts)
     r.h.cl = 0x0c;
     r.h.ch = 0x00;
     r.x.si = 0x0000;
+    r.h.dh = 2;
     sr.es = FP_SEG(url);
     r.x.bx = FP_OFF(url);
     r.x.di = 256;
@@ -81,6 +85,7 @@ void fetch(char *lat, char *lon, unsigned long *ts)
     r.h.cl = 0x00;
     r.h.ch = 0x01;
     r.x.si = 0x0000;
+    r.h.dh = 2;
     int86(0xF5,&r,&r);
 
     /* /\* Parse incoming JSON *\/ */
@@ -89,6 +94,7 @@ void fetch(char *lat, char *lon, unsigned long *ts)
     r.h.al = 0x71;
     r.x.cx = 0x0000;
     r.x.si = 0x0000;
+    r.h.dl = 0;
     int86(0xF5,&r,&r);
 
     /* Query and fetch data */
