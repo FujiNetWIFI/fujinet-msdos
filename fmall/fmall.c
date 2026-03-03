@@ -16,6 +16,7 @@ int main(void)
     puts("Mounting All Slots...");
 
     r.h.dl = 0x00; // No payload
+    r.h.dh = 0x00; // No arguments
     r.h.ah = 0xD7; // Mount All
     r.h.al = 0x70; // Fuji device
     int86(0xF5,&r,&r);
