@@ -2,7 +2,7 @@
  * #FUJINET Low Level Routines
  */
 
-#define DEBUG
+#undef DEBUG
 #define INIT_INFO
 
 #include "fujicom.h"
@@ -282,7 +282,9 @@ bool fuji_bus_call(uint8_t device, uint8_t fuji_cmd, uint8_t fields,
   }
 
   if (fb_packet->header.command != PACKET_ACK) {
+#ifdef DEBUG
     consolef("NOT ACK 0x%02x\n", fb_packet->header.command);
+#endif
     return false;
   }
 
