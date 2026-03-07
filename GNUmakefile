@@ -22,10 +22,6 @@ PRINTER_DEPS = $(call guess_deps,$(PRINTER))
 NGET_DEPS = $(call guess_deps,$(NGET))
 ISS_DEPS = $(call guess_deps,$(ISS))
 
-$(info COMS_DEPS=$(COMS_DEPS))
-$(info COMS=$(COMS))
-$(info DIR=$(dir $(COMS)))
-
 all: $(SYS) $(COMS) $(NCOPY) $(FNSHARE) $(PRINTER) $(NGET) $(ISS)
 
 $(SYS): $(COMS) $(SYS_DEPS)
@@ -33,7 +29,7 @@ $(SYS): $(COMS) $(SYS_DEPS)
 
 $(COMS): $(COMS_DEPS)
 	$(build_it)
-	rm $(SYS)
+	rm $(SYS) || true
 
 $(NCOPY): $(NCOPY_DEPS) sys/print.obj
 	$(build_it)

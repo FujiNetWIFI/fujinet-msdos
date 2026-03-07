@@ -2,7 +2,7 @@
  * #FUJINET Low Level Routines
  */
 
-#undef DEBUG
+#define DEBUG
 #define INIT_INFO
 
 #include "fujicom.h"
@@ -117,6 +117,7 @@ void fujicom_init(void)
   return;
 }
 
+#ifdef UNUSED
 /* This function expects that fb_packet is one byte into fb_buffer so
    that there's already room at the front for the SLIP_END framing
    byte. This allows skipping moving all the bytes if no escaping is
@@ -161,6 +162,7 @@ uint16_t fuji_slip_encode()
   fb_buffer[1 + len + esc_count] = SLIP_END;
   return 2 + len + esc_count;
 }
+#endif /* UNUSED */
 
 uint8_t fuji_calc_checksum(void *ptr, uint16_t len)
 {
@@ -184,7 +186,7 @@ bool fuji_bus_call(uint8_t device, uint8_t fuji_cmd, uint8_t fields,
   uint16_t idx, numbytes;
 
 
-  fb_packet = (fujibus_packet *) (fb_buffer + 1); // +1 for SLIP_END
+  fb_packet = (fujibus_packet *) fb_buffer;
   fb_packet->header.device = device;
   fb_packet->header.command = fuji_cmd;
   fb_packet->header.length = sizeof(fujibus_header);
@@ -219,15 +221,19 @@ bool fuji_bus_call(uint8_t device, uint8_t fuji_cmd, uint8_t fields,
   ck1 = fuji_calc_checksum(fb_packet, fb_packet->header.length);
   fb_packet->header.checksum = ck1;
 
-  numbytes = fuji_slip_encode();
-  port_putbuf(fb_buffer, numbytes);
+  port_putbuf_slip(fb_buffer, fb_packet->header.length);
 
+#ifdef OBSOLETE
   rlen = port_getbuf_slip(fb_packet, sizeof(fb_buffer), TIMEOUT_SLOW);
+#else
+  rlen = port_getbuf_slip_dual(fb_packet, sizeof(fujibus_header), reply, reply_length,
+                               TIMEOUT_SLOW);
+#endif /* OBSOLETE */
 
-#if 0 //def DEBUG
-  consolef("RECEIVED LEN %d\n", rlen);
+#if 1 //def DEBUG
   if (rlen)
     dumpHex(fb_packet, rlen, 0);
+  consolef("RECEIVED LEN %d\n", rlen);
 #endif
   if (rlen < sizeof(fujibus_header) || rlen != fb_packet->header.length) {
 #ifdef DEBUG
@@ -263,11 +269,13 @@ bool fuji_bus_call(uint8_t device, uint8_t fuji_cmd, uint8_t fields,
 
   // FIXME - validate that fb_packet->fields is zero?
 
+#ifdef OBSOLETE
   if (reply_length && rlen) {
     if (reply_length < rlen)
       rlen = reply_length;
     _fmemcpy(reply, fb_packet->data, rlen);
   }
+#endif /* OBSOLETE */
 
   return true;
 }

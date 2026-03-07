@@ -1,11 +1,3 @@
-	; SLIP Protocol Constants
-SLIP_END	EQU	0C0h
-SLIP_ESC	EQU	0DBh
-SLIP_ESC_END	EQU	0DCh
-SLIP_ESC_ESC	EQU	0DDh
-
-	PUBLIC	_port_getbuf_slip
-
 ;-----------------------------------------------------------------------------
 ; Macro to wait for a character with timeout
 ; On entry: SI = end tick count, ES = segment 40h

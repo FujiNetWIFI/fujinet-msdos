@@ -15,6 +15,8 @@
 	;.model	small
 	;.8086
 
+	PUBLIC	_port_uart_base
+
 	.data
 
 ; Global variable to store UART base address
@@ -50,16 +52,17 @@ MCR_DTR		EQU	01h		; Data Terminal Ready
 MCR_RTS		EQU	02h		; Request To Send
 MCR_OUT2	EQU	08h		; OUT2 (enables interrupts on PC)
 
-	.code
+	; BIOS Data Area
+BIOS_DATA_SEG	EQU	40h
+BIOS_TICK_OFFSET EQU	6Ch
 
-	PUBLIC	_port_init
-	PUBLIC	_port_getc
-	PUBLIC	_port_getc_timeout
-	PUBLIC	_port_getbuf
-	PUBLIC	_port_getbuf_sentinel
-	PUBLIC	_port_putc
-	PUBLIC	_port_putbuf
-	PUBLIC	_port_uart_base
+	; SLIP Protocol Constants
+SLIP_END	EQU	0C0h
+SLIP_ESC	EQU	0DBh
+SLIP_ESC_END	EQU	0DCh
+SLIP_ESC_ESC	EQU	0DDh
+
+	.code
 
 ; Debug helper - write character to QEMU debug port 0xE9
 qemu_debug_char PROC	NEAR
@@ -73,8 +76,7 @@ qemu_debug_char PROC	NEAR
 qemu_debug_char ENDP
 
 	include port_init.asm
-;	include port_getbuf_sentinel.asm
-	include port_getbuf_slip.asm
-	include port_putbuf.asm
+	include port_getbuf_slip_dual.asm
+	include port_putbuf_slip.asm
 
 	END
