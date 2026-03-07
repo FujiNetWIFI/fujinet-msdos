@@ -73,7 +73,8 @@ qemu_debug_char PROC	NEAR
 qemu_debug_char ENDP
 
 	include port_init.asm
-	include port_getbuf_sentinel.asm
+;	include port_getbuf_sentinel.asm
+	include port_getbuf_slip.asm
 	include port_putbuf.asm
 
 	END

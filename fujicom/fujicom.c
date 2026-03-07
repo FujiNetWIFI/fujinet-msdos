@@ -162,39 +162,6 @@ uint16_t fuji_slip_encode()
   return 2 + len + esc_count;
 }
 
-uint16_t fuji_slip_decode(uint16_t len)
-{
-  uint16_t idx, dec_idx, esc_count;
-  uint8_t *ptr;
-
-
-  ptr = (uint8_t *) fb_packet;
-  for (idx = 0; idx < len; idx++) {
-    if (ptr[idx] == SLIP_END)
-      break;
-  }
-  idx++;
-
-  for (dec_idx = 0; idx < len; idx++, dec_idx++) {
-    if (ptr[idx] == SLIP_END)
-      break;
-
-    if (ptr[idx] == SLIP_ESCAPE) {
-      idx++;
-      if (ptr[idx] == SLIP_ESC_END)
-        ptr[dec_idx] = SLIP_END;
-      else if (ptr[idx] == SLIP_ESC_ESC)
-        ptr[dec_idx] = SLIP_ESCAPE;
-    }
-    else if (idx != dec_idx) {
-      // Only need to move byte if there were escapes decoded
-      ptr[dec_idx] = ptr[idx];
-    }
-  }
-
-  return dec_idx;
-}
-
 uint8_t fuji_calc_checksum(void *ptr, uint16_t len)
 {
   uint16_t idx, chk;
@@ -255,17 +222,16 @@ bool fuji_bus_call(uint8_t device, uint8_t fuji_cmd, uint8_t fields,
   numbytes = fuji_slip_encode();
   port_putbuf(fb_buffer, numbytes);
 
-  rlen = port_getbuf_sentinel(fb_packet, sizeof(fb_buffer), TIMEOUT_SLOW, SLIP_END, 2);
+  rlen = port_getbuf_slip(fb_packet, sizeof(fb_buffer), TIMEOUT_SLOW);
 
-#if 0 //def DEBUG
+#if 1 //def DEBUG
   consolef("RECEIVED LEN %d\n", rlen);
   if (rlen)
     dumpHex(fb_packet, rlen, 0);
 #endif
-  numbytes = fuji_slip_decode(rlen);
-  if (numbytes < sizeof(fujibus_header) || numbytes != fb_packet->header.length) {
+  if (rlen < sizeof(fujibus_header) || rlen != fb_packet->header.length) {
 #ifdef DEBUG
-    consolef("SHORT PACKET R:%d N:%d E:%d\n", rlen, numbytes, fb_packet->header.length);
+    consolef("SHORT PACKET R:%d E:%d\n", rlen, fb_packet->header.length);
 #endif
     return false;
   }
@@ -273,7 +239,7 @@ bool fuji_bus_call(uint8_t device, uint8_t fuji_cmd, uint8_t fields,
   // Need to zero out checksum in order to calculate
   ck1 = fb_packet->header.checksum;
   fb_packet->header.checksum = 0;
-  ck2 = fuji_calc_checksum(fb_packet, numbytes);
+  ck2 = fuji_calc_checksum(fb_packet, rlen);
   if (ck1 != ck2) {
 #ifdef DEBUG
     consolef("CHECKSUM MISMATCH C:%02x E:%02x\n", ck1, ck2);
@@ -290,10 +256,10 @@ bool fuji_bus_call(uint8_t device, uint8_t fuji_cmd, uint8_t fields,
 
   // FIXME - validate that fb_packet->fields is zero?
 
-  if (reply_length && numbytes) {
-    if (reply_length < numbytes)
-      numbytes = reply_length;
-    _fmemcpy(reply, fb_packet->data, numbytes);
+  if (reply_length && rlen) {
+    if (reply_length < rlen)
+      rlen = reply_length;
+    _fmemcpy(reply, fb_packet->data, rlen);
   }
 
   return true;
