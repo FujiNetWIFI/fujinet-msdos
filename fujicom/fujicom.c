@@ -247,6 +247,13 @@ bool fuji_bus_call(uint8_t device, uint8_t fuji_cmd, uint8_t fields,
     return false;
   }
 
+  if (fb_packet->header.device != device) {
+#ifdef DEBUG
+    consolef("WRONG DEVICE %02x != %02x\n", fb_packet->header.device, device);
+#endif
+    return false;
+  }
+
   if (fb_packet->header.command != PACKET_ACK) {
 #ifdef DEBUG
     consolef("NOT ACK 0x%02x\n", fb_packet->header.command);
