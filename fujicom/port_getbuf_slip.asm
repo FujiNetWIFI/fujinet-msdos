@@ -91,21 +91,17 @@ SLIP_LOCAL_TIMEOUT_TICKS EQU	[bp-14]
 SLIP_LOCAL_ORIGLEN	EQU	[bp-16]
 
 _port_getbuf_slip PROC NEAR
-	push	bp
+	push	bp			; [bp-0]
 	mov	bp, sp
-	push	bx
-	push	cx
-	push	dx
-	push	di
-	push	si
-	push	es
+	push	bx			; [bp-2]
+	push	cx			; [bp-4]
+	push	dx			; [bp-6]
+	push	di			; [bp-8]
+	push	si			; [bp-10]
+	push	es			; [bp-12]
 
 	mov	di, SLIP_PARAM_BUF	; Get buffer pointer
 	mov	cx, SLIP_PARAM_LEN	; CX = buffer length
-
-	; Handle zero length case
-	test	cx, cx
-	jz	slip_done
 
 	; Convert timeout from ms to ticks once (timeout / 55)
 	mov	ax, SLIP_PARAM_TIMEOUT
@@ -115,8 +111,12 @@ _port_getbuf_slip PROC NEAR
 	div	cx			; AX = timeout in ticks
 	pop	cx
 	mov	bx, ax			; BX = timeout in ticks
-	push	bx			; Save timeout ticks
-	push	cx			; Save original length
+	push	bx			; [bp-14] Save timeout ticks
+	push	cx			; [bp-16] Save original length
+
+	; Handle zero length case
+	test	cx, cx
+	jz	slip_done
 
 	; Set ES to BIOS data segment for tick counter access
 	mov	ax, 40h
@@ -181,18 +181,17 @@ slip_check_esc_esc:
 	jmp	slip_store_byte
 
 slip_done:
-	call	qemu_debug_char		; Print low byte
-
 	sti
-	pop	ax			; AX = original length
+	pop	ax			; [bp-16] AX = original length
 	sub	ax, cx			; AX = bytes decoded
 
-	pop	es
-	pop	si
-	pop	di
-	pop	dx
-	pop	cx
-	pop	bx
-	pop	bp
+	pop	bx			; [bp-14] discard timeout ticks
+	pop	es			; [bp-12]
+	pop	si			; [bp-10]
+	pop	di			; [bp-8]
+	pop	dx			; [bp-6]
+	pop	cx			; [bp-4]
+	pop	bx			; [bp-2]
+	pop	bp			; [bp-0]
 	ret
 _port_getbuf_slip ENDP

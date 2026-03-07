@@ -224,7 +224,7 @@ bool fuji_bus_call(uint8_t device, uint8_t fuji_cmd, uint8_t fields,
 
   rlen = port_getbuf_slip(fb_packet, sizeof(fb_buffer), TIMEOUT_SLOW);
 
-#if 1 //def DEBUG
+#if 0 //def DEBUG
   consolef("RECEIVED LEN %d\n", rlen);
   if (rlen)
     dumpHex(fb_packet, rlen, 0);
