@@ -2,7 +2,7 @@
  * #FUJINET Low Level Routines
  */
 
-#define DEBUG
+#undef DEBUG
 #define INIT_INFO
 
 #include "fujicom.h"
@@ -50,11 +50,11 @@ typedef struct {
 
 typedef struct {
   fujibus_header header;
-  uint8_t data[];
+  uint8_t far *data;
 } fujibus_packet;
 
-#define MAX_PACKET      (512 + sizeof(fujibus_header) + 4) // sector + header + secnum
-static uint8_t fb_buffer[MAX_PACKET * 2 + 2];              // Enough room for SLIP encoding
+#define MAX_PACKET (sizeof(fujibus_header) + 4) // header + aux
+static uint8_t fb_buffer[MAX_PACKET];
 static fujibus_packet *fb_packet;
 
 // Not worth making these into functions, I'm sure they'd eat more bytes
@@ -117,62 +117,30 @@ void fujicom_init(void)
   return;
 }
 
-#ifdef UNUSED
-/* This function expects that fb_packet is one byte into fb_buffer so
-   that there's already room at the front for the SLIP_END framing
-   byte. This allows skipping moving all the bytes if no escaping is
-   needed. */
-uint16_t fuji_slip_encode()
-{
-  uint16_t idx, len, enc_idx, esc_count, esc_remain;
-  uint8_t ch, *ptr;
-
-
-  // Count how many bytes need to be escaped
-  len = fb_packet->header.length;
-  ptr = (uint8_t *) fb_packet;
-  for (idx = esc_count = 0; idx < len; idx++) {
-    if (ptr[idx] == SLIP_END || ptr[idx] == SLIP_ESCAPE)
-      esc_count++;
-  }
-
-  if (esc_count) {
-    // Encode buffer in place working from back to front
-    for (esc_remain = esc_count, enc_idx = esc_count + (idx = len - 1);
-         esc_remain;
-         idx--, enc_idx--) {
-      ch = ptr[idx];
-      if (ch == SLIP_END) {
-        ptr[enc_idx--] = SLIP_ESC_END;
-        ch = SLIP_ESCAPE;
-        esc_remain--;
-      }
-      else if (ch == SLIP_ESCAPE) {
-        ptr[enc_idx--] = SLIP_ESC_ESC;
-        ch = SLIP_ESCAPE;
-        esc_remain--;
-      }
-
-      ptr[enc_idx] = ch;
-    }
-  }
-
-  // FIXME - this byte probably never changes, maybe we should init fb_buffer with it?
-  fb_buffer[0] = SLIP_END;
-  fb_buffer[1 + len + esc_count] = SLIP_END;
-  return 2 + len + esc_count;
-}
-#endif /* UNUSED */
-
-uint8_t fuji_calc_checksum(void *ptr, uint16_t len)
+uint16_t fuji_calc_checksum(const void far *ptr, uint16_t len, uint16_t seed)
 {
   uint16_t idx, chk;
-  uint8_t *buf = (uint8_t *) ptr;
+  uint8_t far *buf = (uint8_t far *) ptr;
 
 
-  for (idx = chk = 0; idx < len; idx++)
+  for (idx = 0, chk = seed; idx < len; idx++)
     chk = ((chk + buf[idx]) >> 8) + ((chk + buf[idx]) & 0xFF);
-  return (uint8_t) chk;
+  return chk;
+}
+
+void packet_fail(fujibus_packet *packet, uint16_t rlen, const char *message, ...)
+{
+  va_list args;
+  uint16_t hlen = sizeof(packet->header);
+
+
+  dumpHex(packet, hlen, 0);
+  if (rlen > hlen)
+    dumpHex(packet->data, rlen - hlen, hlen);
+  va_start(args, message);
+  vconsolef(message, args);
+  va_end(args);
+  return;
 }
 
 bool fuji_bus_call(uint8_t device, uint8_t fuji_cmd, uint8_t fields,
@@ -181,7 +149,7 @@ bool fuji_bus_call(uint8_t device, uint8_t fuji_cmd, uint8_t fields,
 		   void far *reply, size_t reply_length)
 {
   int code;
-  uint8_t ck1, ck2;
+  uint16_t ck1, ck2;
   uint16_t rlen;
   uint16_t idx, numbytes;
 
@@ -192,6 +160,7 @@ bool fuji_bus_call(uint8_t device, uint8_t fuji_cmd, uint8_t fields,
   fb_packet->header.length = sizeof(fujibus_header);
   fb_packet->header.checksum = 0;
   fb_packet->header.fields = fields;
+  fb_packet->data = fb_buffer + sizeof(fb_packet->header);
 
   idx = 0;
   numbytes = fuji_field_numbytes(fields);
@@ -211,71 +180,72 @@ bool fuji_bus_call(uint8_t device, uint8_t fuji_cmd, uint8_t fields,
     fb_packet->data[idx++] = aux4;
     numbytes--;
   }
-  if (data) {
-    _fmemcpy(&fb_packet->data[idx], data, data_length);
-    idx += data_length;
-  }
 
-  fb_packet->header.length += idx;
+  fb_packet->header.length += idx + data_length;
 
-  ck1 = fuji_calc_checksum(fb_packet, fb_packet->header.length);
+  // Data is spread across two buffers: ours and data
+  ck1 = fuji_calc_checksum(fb_packet, sizeof(fb_packet->header) + idx, 0);
+  if (data)
+    ck1 = fuji_calc_checksum(data, data_length, ck1);
   fb_packet->header.checksum = ck1;
 
-  port_putbuf_slip(fb_buffer, fb_packet->header.length);
+  port_putc(SLIP_END);
+  port_putbuf_slip(fb_buffer, idx + sizeof(fb_packet->header));
+  if (data)
+    port_putbuf_slip(data, data_length);
+  port_putc(SLIP_END);
 
-#ifdef OBSOLETE
-  rlen = port_getbuf_slip(fb_packet, sizeof(fb_buffer), TIMEOUT_SLOW);
-#else
-  rlen = port_getbuf_slip_dual(fb_packet, sizeof(fujibus_header), reply, reply_length,
+  fb_packet->data = reply;
+  rlen = port_getbuf_slip_dual(fb_packet, sizeof(fb_packet->header),
+                               fb_packet->data, reply_length,
                                TIMEOUT_SLOW);
-#endif /* OBSOLETE */
 
-#if 1 //def DEBUG
+#if 0 //def DEBUG
   if (rlen)
     dumpHex(fb_packet, rlen, 0);
   consolef("RECEIVED LEN %d\n", rlen);
 #endif
   if (rlen < sizeof(fujibus_header) || rlen != fb_packet->header.length) {
 #ifdef DEBUG
-    consolef("SHORT PACKET R:%d E:%d\n", rlen, fb_packet->header.length);
-#endif
-    return false;
-  }
-
-  // Need to zero out checksum in order to calculate
-  ck1 = fb_packet->header.checksum;
-  fb_packet->header.checksum = 0;
-  ck2 = fuji_calc_checksum(fb_packet, rlen);
-  if (ck1 != ck2) {
-#ifdef DEBUG
-    consolef("CHECKSUM MISMATCH C:%02x E:%02x\n", ck1, ck2);
-#endif
-    return false;
-  }
-
-  if (fb_packet->header.device != device) {
-#ifdef DEBUG
-    consolef("WRONG DEVICE %02x != %02x\n", fb_packet->header.device, device);
-#endif
-    return false;
-  }
-
-  if (fb_packet->header.command != PACKET_ACK) {
-#ifdef DEBUG
-    consolef("NOT ACK 0x%02x\n", fb_packet->header.command);
+    packet_fail(fb_packet, rlen,
+                "SHORT PACKET R:%d E:%d\n", rlen, fb_packet->header.length);
 #endif
     return false;
   }
 
   // FIXME - validate that fb_packet->fields is zero?
 
-#ifdef OBSOLETE
-  if (reply_length && rlen) {
-    if (reply_length < rlen)
-      rlen = reply_length;
-    _fmemcpy(reply, fb_packet->data, rlen);
+  // Need to zero out checksum in order to calculate
+  ck1 = fb_packet->header.checksum;
+  fb_packet->header.checksum = 0;
+
+  // Data is spread across two buffers: ours and reply
+  ck2 = fuji_calc_checksum(fb_packet, sizeof(fb_packet->header), 0);
+  if (fb_packet->data)
+    ck2 = fuji_calc_checksum(fb_packet->data, rlen - sizeof(fujibus_header), ck2);
+  ck2 = (uint8_t) ck2;
+
+  if (ck1 != ck2) {
+#ifdef DEBUG
+    //packet_fail(fb_packet, rlen, "CHECKSUM MISMATCH C:%02x E:%02x\n", ck2, ck1);
+#endif
+    return false;
   }
-#endif /* OBSOLETE */
+
+  if (fb_packet->header.device != device) {
+#ifdef DEBUG
+    packet_fail(fb_packet, rlen,
+                "WRONG DEVICE %02x != %02x\n", fb_packet->header.device, device);
+#endif
+    return false;
+  }
+
+  if (fb_packet->header.command != PACKET_ACK) {
+#ifdef DEBUG
+    packet_fail(fb_packet, rlen, "NOT ACK 0x%02x\n", fb_packet->header.command);
+#endif
+    return false;
+  }
 
   return true;
 }

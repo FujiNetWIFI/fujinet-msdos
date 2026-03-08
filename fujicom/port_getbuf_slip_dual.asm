@@ -36,6 +36,7 @@ got_char:
 	mov	dx, SLIPD_LOCAL_UART_BASE
 	add	dx, UART_RBR_OFF
 	in	al, dx
+	call	qemu_debug_char
 ENDM
 
 ;-----------------------------------------------------------------------------
@@ -56,7 +57,7 @@ ENDM
 ;
 ; Register usage:
 ;   AX = scratch
-;   BX = timeout in ticks (constant after setup)
+;   BX = total bytes written (accumulator)
 ;   CX = remaining space in current buffer
 ;   DX = UART port / scratch
 ;   DI = buffer pointer
@@ -86,8 +87,8 @@ ENDM
 
 SLIPD_PARAM_HDR_BUF	EQU	[bp+4]
 SLIPD_PARAM_HDR_LEN	EQU	[bp+6]
-SLIPD_PARAM_DATA_SEG	EQU	[bp+8]
-SLIPD_PARAM_DATA_OFF	EQU	[bp+10]
+SLIPD_PARAM_DATA_OFF	EQU	[bp+8]
+SLIPD_PARAM_DATA_SEG	EQU	[bp+10]
 SLIPD_PARAM_DATA_LEN	EQU	[bp+12]
 SLIPD_PARAM_TIMEOUT	EQU	[bp+14]
 SLIPD_LOCAL_UART_BASE	EQU	[bp-16]
@@ -109,7 +110,7 @@ _port_getbuf_slip_dual PROC NEAR
 
 	; Save _port_uart_base on stack for macro to use
 	mov	ax, _port_uart_base
-	push	ax			; [bp-14]
+	push	ax			; [bp-16]
 
 	; Check for zero total length
 	mov	ax, SLIPD_PARAM_HDR_LEN
@@ -125,7 +126,9 @@ _port_getbuf_slip_dual PROC NEAR
 	div	cx			; AX = timeout in ticks
 	pop	cx
 	mov	SLIPD_PARAM_TIMEOUT, ax	; Overwrite parameter with ticks
-	mov	bx, ax			; BX = timeout in ticks for later use
+
+	; BX = bytes written accumulator
+	xor	bx, bx
 
 	; Set ES to BIOS data segment
 	mov	ax, BIOS_DATA_SEG
@@ -159,6 +162,7 @@ slipd_store_byte:
 	; Write byte to current buffer (DS:[DI])
 	mov	ds:[di], al
 	inc	di
+	inc	bx			; Count byte written
 	dec	cx
 	jnz	slipd_read_next		; Still bytes remaining in current buffer
 
@@ -166,6 +170,9 @@ slipd_store_byte:
 	mov	cx, SLIPD_PARAM_DATA_LEN
 	test	cx, cx
 	jz	slipd_done		; No data buffer, we're done
+
+	; Zero out data_len so exhausting the data buffer ends the loop
+	mov	word ptr SLIPD_PARAM_DATA_LEN, 0
 
 	; Switch to data buffer
 	mov	di, SLIPD_PARAM_DATA_OFF
@@ -200,11 +207,7 @@ slipd_check_esc_esc:
 
 slipd_done:
 	sti
-	; Calculate total length and subtract remaining to get bytes decoded
-	; (do this before popping so we can use registers freely)
-	mov	ax, SLIPD_PARAM_HDR_LEN
-	add	ax, SLIPD_PARAM_DATA_LEN
-	sub	ax, cx			; AX = bytes decoded (save for return)
+	mov	ax, bx			; AX = total bytes written
 
 	pop	dx			; [bp-16] Discard _port_uart_base copy
 

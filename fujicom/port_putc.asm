@@ -1,3 +1,5 @@
+	PUBLIC	_port_putc
+
 ;-----------------------------------------------------------------------------
 ; int port_putc(uint8_t c)
 ; Send one character to the UART
