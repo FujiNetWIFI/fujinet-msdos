@@ -229,7 +229,7 @@ bool fuji_bus_call(uint8_t device, uint8_t fuji_cmd, uint8_t fields,
 
   if (ck1 != ck2) {
 #ifdef DEBUG
-    //packet_fail(fb_packet, rlen, "CHECKSUM MISMATCH C:%02x E:%02x\n", ck2, ck1);
+    packet_fail(fb_packet, rlen, "CHECKSUM MISMATCH C:%02x E:%02x\n", ck2, ck1);
 #endif
     return false;
   }
