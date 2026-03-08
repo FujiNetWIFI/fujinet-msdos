@@ -15,7 +15,7 @@
 unsigned char url[256];
 
 /* large byte buffer used for copy. */
-unsigned char buf[512];
+unsigned char buf[8192];
 
 /* Status structure */
 struct _status

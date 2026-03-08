@@ -16,9 +16,10 @@
 extern uint16_t port_uart_base;
 
 extern void cdecl port_init(uint16_t base, uint16_t divisor);
-
-extern uint16_t cdecl port_getbuf_sentinel(void *buf, uint16_t len, uint16_t timeout,
-                                           uint8_t sentinel, uint16_t sentinel_count);
-extern uint16_t cdecl port_putbuf(const void *buf, uint16_t len);
+extern uint16_t cdecl port_getbuf_slip_dual(void *hdr_buf, uint16_t hdr_len,
+                                            void far *data_buf, uint16_t data_len,
+                                            uint16_t timeout);
+extern int cdecl port_putc(uint8_t c);
+extern uint16_t cdecl port_putbuf_slip(const void far *buf, uint16_t len);
 
 #define PORT_TICKS_PER_SECOND 1000

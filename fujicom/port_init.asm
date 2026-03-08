@@ -1,3 +1,5 @@
+	PUBLIC	_port_init
+
 ;-----------------------------------------------------------------------------
 ; void port_init(uint16_t base, uint16_t divisor)
 ; Initialize the UART for specified baud rate, 8N1
