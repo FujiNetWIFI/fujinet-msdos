@@ -2,7 +2,7 @@
  * #FUJINET Low Level Routines
  */
 
-#undef DEBUG
+#define DEBUG
 #define INIT_INFO
 
 #include "fujicom.h"
@@ -55,7 +55,7 @@ typedef struct {
 
 #define MAX_PACKET (sizeof(fujibus_header) + 4) // header + aux
 static uint8_t fb_buffer[MAX_PACKET];
-static fujibus_packet *fb_packet;
+static fujibus_packet *fb_packet = (fujibus_packet *) fb_buffer;
 
 // Not worth making these into functions, I'm sure they'd eat more bytes
 const uint8_t fuji_field_numbytes_table[] = {0, 1, 2, 3, 4, 2, 4, 4};
@@ -134,9 +134,11 @@ void packet_fail(fujibus_packet *packet, uint16_t rlen, const char *message, ...
   uint16_t hlen = sizeof(packet->header);
 
 
+#ifdef MEGA_DEBUG
   dumpHex(packet, hlen, 0);
   if (rlen > hlen)
     dumpHex(packet->data, rlen - hlen, hlen);
+#endif // MEGA_DEBUG
   va_start(args, message);
   vconsolef(message, args);
   va_end(args);
@@ -152,32 +154,32 @@ bool fuji_bus_call(uint8_t device, uint8_t fuji_cmd, uint8_t fields,
   uint16_t ck1, ck2;
   uint16_t rlen;
   uint16_t idx, numbytes;
+  uint8_t *ptr = &fb_buffer[sizeof(fujibus_header)];
 
 
-  fb_packet = (fujibus_packet *) fb_buffer;
   fb_packet->header.device = device;
   fb_packet->header.command = fuji_cmd;
   fb_packet->header.length = sizeof(fujibus_header);
   fb_packet->header.checksum = 0;
   fb_packet->header.fields = fields;
-  fb_packet->data = fb_buffer + sizeof(fb_packet->header);
+  fb_packet->data = ptr;
 
   idx = 0;
   numbytes = fuji_field_numbytes(fields);
   if (numbytes) {
-    fb_packet->data[idx++] = aux1;
+    ptr[idx++] = aux1;
     numbytes--;
   }
   if (numbytes) {
-    fb_packet->data[idx++] = aux2;
+    ptr[idx++] = aux2;
     numbytes--;
   }
   if (numbytes) {
-    fb_packet->data[idx++] = aux3;
+    ptr[idx++] = aux3;
     numbytes--;
   }
   if (numbytes) {
-    fb_packet->data[idx++] = aux4;
+    ptr[idx++] = aux4;
     numbytes--;
   }
 

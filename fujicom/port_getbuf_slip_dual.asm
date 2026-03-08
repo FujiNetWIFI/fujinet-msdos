@@ -36,7 +36,6 @@ got_char:
 	mov	dx, SLIPD_LOCAL_UART_BASE
 	add	dx, UART_RBR_OFF
 	in	al, dx
-	call	qemu_debug_char
 ENDM
 
 ;-----------------------------------------------------------------------------
