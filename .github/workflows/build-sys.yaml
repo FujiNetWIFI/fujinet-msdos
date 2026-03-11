@@ -1,14 +1,19 @@
 name: Build fujinet.sys
 
-on: 
-  push: 
+on:
+  push:
     branches:
       - main
     paths:
       - 'sys/**'
       - 'fujicom/**'
   workflow_dispatch:
-    
+  pull_request:
+    # Do not build release branch
+    branches:
+      - "**"
+      - "!release"
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -16,7 +21,7 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2
-      
+
       - name: Get short SHA
         id: short-sha
         run: echo "sha=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
@@ -24,22 +29,22 @@ jobs:
       - name: Git Safe Directory
         run: git config --global --add safe.directory ${{ github.workspace }}
 
-      - name: Setup Watcom 
+      - name: Setup Watcom
         uses: open-watcom/setup-watcom@v0
         with:
           version: "2.0"
           target: dos
-      
+
       - name: Build fujicom
         working-directory: fujicom/
         run: make
 
       - name: Build fujinet.sys
         working-directory: sys/
-        run: | 
+        run: |
           make
           cp fujinet.sys fujinet-${{ steps.short-sha.outputs.sha }}.sys
-      
+
       - name: Bump version and push tag
         id: tag-version
         uses: laputansoft/github-tag-action@v4.6
@@ -49,10 +54,10 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          body: | 
+          body: |
             `fujinet.sys` MS-DOS driver for RS232 FujiNet
           tag_name: ${{ steps.tag-version.outputs.new_tag }}
-          prerelease: true 
+          prerelease: true
           files: ${{ github.workspace }}/sys/fujinet-${{ steps.short-sha.outputs.sha }}.sys
-          generate_release_notes: true 
-          make_latest: true 
+          generate_release_notes: true
+          make_latest: true
