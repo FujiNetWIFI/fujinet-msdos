@@ -7,7 +7,7 @@ LDFLAGS = SYSTEM dos OPTION MAP LIBPATH ../fujicom
 
 all: fmount.exe
 
-fmount.exe: fmount.obj
+fmount.exe: fmount.obj getargs.obj
 
 .obj.exe:
 	$(LD) $(LDFLAGS) NAME $@ file {$< ../sys/print.obj} LIBRARY {fujicoms.lib clibs.lib}
