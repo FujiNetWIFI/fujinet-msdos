@@ -7,6 +7,9 @@
 #define FUJI_SIGNATURE "FUJI"
 #define NUM_DEV_SLOTS 8
 
+#define ICON_DRIVE_EMPTY   "\xC4\xFE\xC4"
+#define ICON_DRIVE_MOUNTED "\x16\x16\x16"
+
 int find_driver_letter(int drive)
 {
   union REGS regs;
@@ -54,9 +57,9 @@ int main()
     if (fuji_unit != -1) {
       rw = dev_slots[fuji_unit].mode & 0x3;
       if (dev_slots[fuji_unit].mode & DISK_ACCESS_MODE_MOUNTED)
-        printf("\x16\x16\x16 ");
+        printf(ICON_DRIVE_MOUNTED " ");
       else
-        printf("\xC4\xFE\xC4 ");
+        printf(ICON_DRIVE_EMPTY " ");
       printf("%c:", 'A' + drive - 1);
       if (dev_slots[fuji_unit].hostSlot == 0xFF)
         printf(" -- no disk selected --");
