@@ -137,7 +137,7 @@ uint8_t get_fujinet_version()
   unsigned int idx;
 
 
-  if (!fuji_bus_call(DEVICEID_FUJINET, CMD_GET_ADAPTERCONFIG, FUJI_FIELD_NONE,
+  if (!fuji_bus_call(FUJI_DEVICEID_FUJINET, FUJICMD_GET_ADAPTERCONFIG, FUJI_FIELD_NONE,
                      0, 0, 0, 0,
                      NULL, 0, &config, sizeof(config))) {
     consolef("Unable to get FujiNet version %i.\nAborted.\n", reply);
@@ -160,7 +160,7 @@ uint8_t get_set_time(uint8_t set_flag)
   uint16_t year_wcen;
 
 
-  if (!fuji_bus_call(DEVICEID_APETIME, CMD_APETIME_GETTZTIME, FUJI_FIELD_NONE,
+  if (!fuji_bus_call(FUJI_DEVICEID_CLOCK, FUJICMD_APETIME_GETTZTIME, FUJI_FIELD_NONE,
                      0, 0, 0, 0,
                      NULL, 0, &cur_time, sizeof(cur_time))) {
     consolef("Could not read time from FujiNet %i.\nAborted.\n", reply);

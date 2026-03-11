@@ -3,6 +3,7 @@
 #include "sys_hdr.h"
 #include "fujicom.h"
 #include "print.h"
+#include "ioctl.h"
 #include <string.h>
 #include <dos.h>
 
@@ -43,13 +44,13 @@ uint16_t Media_check_cmd(SYSREQ far *req)
 
   old_status = mount_status[req->unit * 2];
 
-  if (!fuji_bus_call(DEVICEID_FUJINET, CMD_STATUS, FUJI_FIELD_A1,
+  if (!fuji_bus_call(FUJI_DEVICEID_FUJINET, FUJICMD_STATUS, FUJI_FIELD_A1,
                      STATUS_MOUNT_TIME, 0, 0, 0,
                      NULL, 0, mount_status, sizeof(mount_status)))
     return ERROR_BIT | NOT_READY;
 
   // Get read/write state while we're at it
-  if (!fuji_bus_call(DEVICEID_FUJINET, CMD_READ_DEVICE_SLOTS, FUJI_FIELD_C1234,
+  if (!fuji_bus_call(FUJI_DEVICEID_FUJINET, FUJICMD_READ_DEVICE_SLOTS, FUJI_FIELD_C1234,
                      0, 0, 0, 0,
                      NULL, 0, disk_slots, sizeof(disk_slots)))
     return ERROR_BIT | NOT_READY;
@@ -89,7 +90,7 @@ uint16_t Build_bpb_cmd(SYSREQ far *req)
 
   // DOS gave us a buffer to use
   buf = req->bpb.buffer_ptr;
-  if (!fuji_bus_call(DEVICEID_DISK + req->unit, CMD_READ, FUJI_FIELD_C1234,
+  if (!fuji_bus_call(FUJI_DEVICEID_DISK + req->unit, FUJICMD_READ, FUJI_FIELD_C1234,
                      0, 0, 0, 0,
                      NULL, 0, buf, SECTOR_SIZE)) {
     consolef("FujiNet read fail: %i\n", reply);
@@ -110,7 +111,31 @@ uint16_t Build_bpb_cmd(SYSREQ far *req)
 
 uint16_t Ioctl_input_cmd(SYSREQ far *req)
 {
-  return UNKNOWN_CMD;
+  fuji_ioctl_query far *query;
+
+
+#if 0
+  consolef("IOCTL INPUT CALLED\n");
+  consolef("UNIT: %d\n", req->unit);
+  consolef("SIZE: %d\n", req->io.count);
+  consolef("BUFFER: %08lx\n", req->io.buffer_ptr);
+#endif
+
+  if (req->unit >= FN_MAX_DEV) {
+    consolef("Invalid Input unit: %i\n", req->unit);
+    return ERROR_BIT | UNKNOWN_UNIT;
+  }
+
+  if (req->io.count < sizeof(*query)) {
+    consolef("Invalid IOCTL query\n");
+    return ERROR_BIT | UNKNOWN_CMD;
+  }
+
+  query = (fuji_ioctl_query __far *) req->io.buffer_ptr;
+  _fmemcpy(query->signature, "FUJI", 4);
+  query->unit = req->unit;
+
+  return OP_COMPLETE;
 }
 
 uint16_t Input_cmd(SYSREQ far *req)
@@ -152,7 +177,7 @@ uint16_t Input_cmd(SYSREQ far *req)
       return ERROR_BIT | NOT_FOUND;
     }
 
-    if (!fuji_bus_call(DEVICEID_DISK + req->unit, CMD_READ, FUJI_FIELD_C1234,
+    if (!fuji_bus_call(FUJI_DEVICEID_DISK + req->unit, FUJICMD_READ, FUJI_FIELD_C1234,
                        U16_LSB(U32_LSW(sector)), U16_MSB(U32_LSW(sector)),
                        U16_LSB(U32_MSW(sector)), U16_MSB(U32_MSW(sector)),
                        NULL, 0, &buf[idx * SECTOR_SIZE], SECTOR_SIZE))
@@ -217,7 +242,7 @@ uint16_t Output_cmd(SYSREQ far *req)
       return ERROR_BIT | NOT_FOUND;
     }
 
-    if (!fuji_bus_call(DEVICEID_DISK + req->unit, CMD_WRITE, FUJI_FIELD_C1234,
+    if (!fuji_bus_call(FUJI_DEVICEID_DISK + req->unit, FUJICMD_WRITE, FUJI_FIELD_C1234,
                        U16_LSB(U32_LSW(sector)), U16_MSB(U32_LSW(sector)),
                        U16_LSB(U32_MSW(sector)), U16_MSB(U32_MSW(sector)),
                        &buf[idx * SECTOR_SIZE], SECTOR_SIZE, NULL, 0))
@@ -249,6 +274,7 @@ uint16_t Output_flush_cmd(SYSREQ far *req)
 
 uint16_t Ioctl_output_cmd(SYSREQ far *req)
 {
+  consolef("IOCTL OUTPUT CALLED\n");
   return UNKNOWN_CMD;
 }
 
@@ -270,6 +296,7 @@ uint16_t Remove_media_cmd(SYSREQ far *req)
 
 uint16_t Ioctl_cmd(SYSREQ far *req)
 {
+  consolef("IOCTL CALLED\n");
   return UNKNOWN_CMD;
 }
 

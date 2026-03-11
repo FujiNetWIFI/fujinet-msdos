@@ -24,8 +24,12 @@ _sys_hdr_ label near
 	extrn	Strategy_:near
 	extrn	Interrupt_:near
 
+ATTRIB_OVER_32M	equ	0020h
+ATTRIB_FAT_BPB	equ	2000h
+ATTRIB_RW_IOCTL	equ	4000h
+
 	dd	-1
-	dw	2002h
+	dw	ATTRIB_OVER_32M OR ATTRIB_FAT_BPB OR ATTRIB_RW_IOCTL
 	dw	Strategy_
 	dw	Interrupt_
 	db	8, 0, 0, 0, 0, 0, 0, 0
