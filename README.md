@@ -1,4 +1,4 @@
-# fujinet-msdos
+# FujiNet Tools - RS-232 for MS-DOS
 
 MS-DOS utilities and drivers for the [FujiNet](https://github.com/FujiNetWIFI/fujinet-firmware) RS-232 adapter — an ESP32-based device that provides network access, virtual disk drives, and printer emulation to vintage computers via serial port.
 
