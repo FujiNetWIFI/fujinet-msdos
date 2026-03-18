@@ -4,17 +4,17 @@ MS-DOS utilities and drivers for the [FujiNet](https://github.com/FujiNetWIFI/fu
 
 ## Components
 
-| Output           | Description                                          |
-| ---------------- | ---------------------------------------------------- |
-| `fujinet.sys`    | Block device driver — load in `CONFIG.SYS`           |
-| `fujiprn.sys`    | Printer driver (redirects INT 17h to FujiNet)        |
-| `fujicoms.lib`   | FUJICOM RS-232 communications library (SLIP/SIO)     |
-| `fmount.exe`     | Mount and unmount FujiNet disk images as DOS drives  |
-| `ncopy.exe`      | Interactive network file copy utility                |
-| `nget.exe`       | Download a file from a network URL                   |
-| `fnshare.exe`    | TSR that shares the local DOS filesystem over FujiNet|
-| `setssid.exe`    | Configure FujiNet WiFi SSID and password             |
-| `iss.exe`        | ISS position tracker — HTTP/JSON demo                |
+| Output         | Description                                              |
+|----------------|----------------------------------------------------------|
+| `fujinet.sys`  | Block device driver — load in `CONFIG.SYS`               |
+| `fujiprn.sys`  | Printer driver (redirects INT 17h to FujiNet)            |
+| `fujicoms.lib` | FUJICOM RS-232 communications library                    |
+| `fmount.exe`   | Mount and unmount FujiNet disk images as DOS drives      |
+| `ncopy.exe`    | Interactive network file copy utility                    |
+| `nget.exe`     | Download a file from a network URL                       |
+| `fnshare.exe`  | TSR that mounts any share FujiNet can talk to as a drive |
+| `setssid.exe`  | Configure FujiNet WiFi SSID and password                 |
+| `iss.exe`      | ISS position tracker — HTTP/JSON demo                    |
 
 ## Runtime Setup
 
@@ -31,10 +31,10 @@ DEVICE=FUJIPRN.SYS
 
 These control the RS-232 connection to the FujiNet adapter:
 
-| Variable  | Default | Description                          |
-| --------- | ------- | ------------------------------------ |
+| Variable  | Default | Description                                                |
+|-----------|---------|------------------------------------------------------------|
 | FUJI_PORT | 1       | Serial port to use: 1–4, or hex I/O address (e.g. `0x3F8`) |
-| FUJI_BAUD | 9600    | Baud rate (9600 or 115200)           |
+| FUJI_BAUD | 115200  | Baud rate (9600 or 115200)                                 |
 
 ## Build Directions
 
