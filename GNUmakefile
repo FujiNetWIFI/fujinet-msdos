@@ -7,6 +7,13 @@ NGET = nget/nget.exe
 ISS = iss/iss.exe
 FMOUNT = fmount/fmount.exe
 
+GIT_REF := $(shell git rev-parse --short HEAD)
+ifdef USE_GIT_REF
+DISK_IMG ?= fn-$(GIT_REF).img
+else
+DISK_IMG ?= fn-msdos.img
+endif
+
 define build_it
 	make -C $(dir $@)
 endef
@@ -54,8 +61,8 @@ $(FMOUNT): $(COMS) $(FMOUNT_DEPS)
 # Create builds directory and copy all executables
 builds: all
 	@mkdir -p builds
-	@echo "Copying executables to builds directory..."
-	@cp */*.sys */*.exe builds/
+	@echo -n "Copying executables to builds directory..."
+	@cp -u $(SYS) $(PRINTER) $(NCOPY) $(FNSHARE) $(NGET) $(ISS) $(FMOUNT) builds/
 	@echo "Done."
 
 clean:
@@ -71,3 +78,11 @@ zip: builds
 	@echo "Creating fn-msdos.zip..."
 	@zip -j fn-msdos.zip builds/*
 	@echo "Done."
+
+disk: builds
+	@echo "Creating 1.44MB floppy..."
+	@dd if=/dev/zero of=$(DISK_IMG) bs=1024 count=1440
+	@mformat -i $(DISK_IMG)
+	@mcopy -i $(DISK_IMG) builds/* ::
+	@echo "Created disk image $(DISK_IMG). Done."
+
