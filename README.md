@@ -34,7 +34,7 @@ These control the RS-232 connection to the FujiNet adapter:
 | Variable  | Default | Description                                                |
 |-----------|---------|------------------------------------------------------------|
 | FUJI_PORT | 1       | Serial port to use: 1–4, or hex I/O address (e.g. `0x3F8`) |
-| FUJI_BAUD | 115200  | Baud rate (9600 or 115200)                                 |
+| FUJI_BPS  | 115200  | Bits per second (9600, 19200, 115200, etc.)                |
 
 ## Build Directions
 
