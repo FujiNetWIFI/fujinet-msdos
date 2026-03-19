@@ -67,7 +67,7 @@ $(FCONFIG): $(FCONFIG_DEPS)
 builds: all
 	@mkdir -p builds
 	@echo -n "Copying executables to builds directory..."
-	@cp -u $(SYS) $(PRINTER) $(NCOPY) $(FNSHARE) $(NGET) $(NPUT) $(FMOUNT) $(FCONFIG) builds/
+	@cp -u $(SYS) $(PRINTER) $(NCOPY) $(FNSHARE) $(NGET) $(NPUT) $(FMOUNT) $(FCONFIG) config.sys builds/
 	@echo "Done."
 
 CLEAN_DIRS = $(sort $(dir $(SYS) $(COMS) $(NCOPY) $(FNSHARE) $(PRINTER) $(NGET) $(NPUT) $(FMOUNT) $(FCONFIG)))
