@@ -59,10 +59,10 @@ int main(int argc, char *argv[])
   int drive, fuji_unit;
   uint8_t rw;
   DeviceSlot dev_slots[NUM_DEV_SLOTS];
-  int mount_all = 0, eject = 0, mount_write = 0, tell_slot = 0;
+  int mount_all = 0, eject = 0, mount_write = 0, tell_slot = -1;
 
 
-  count = getargs(argc, argv, "abebwbtb", &mount_all, &eject, &mount_write, &tell_slot);
+  count = getargs(argc, argv, "abebwbti", &mount_all, &eject, &mount_write, &tell_slot);
   if (count < 0) {
     if (count < 0 && -count != '-')
       fprintf(stderr, "Bad flag: %c\n", -count);
@@ -81,14 +81,10 @@ int main(int argc, char *argv[])
     return 1;
   }
 
-  if (tell_slot) {
-    if (argc - count < 1) {
-      fprintf(stderr, "Usage: %s -t N\n", *argv);
-      exit(1);
-    }
-    drive = find_slot_drive(atoi(argv[count]));
+  if (tell_slot >= 0) {
+    drive = find_slot_drive(tell_slot);
     if (drive == -1)
-      printf("No DOS drive mapped to FujiNet slot %s\n", argv[count]);
+      printf("No DOS drive mapped to FujiNet slot %d\n", tell_slot);
     else
       printf("%c:\n", 'A' + drive - 1);
     return 0;
