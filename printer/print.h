@@ -2,6 +2,7 @@
 #define _PRINT_H
 
 #include <stdint.h>
+#include <stdarg.h>
 
 #define DOS_SAFE
 #ifdef DOS_SAFE
@@ -36,6 +37,7 @@ extern void printHex32(uint32_t val, uint16_t width, char leading);
 extern void printDec(uint16_t val, uint16_t width, char leading);
 extern void dumpHex(void far *ptr, uint16_t count, uint16_t address);
 
+extern void vconsolef(const char *format, va_list args);
 extern void consolef(const char *format, ...);
 
 #endif /* _PRINT_H */

@@ -59,3 +59,4 @@ dkms.conf
 
 *.img
 *.zip
+.vscode/settings.json
