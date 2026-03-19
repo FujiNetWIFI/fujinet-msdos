@@ -43,24 +43,35 @@ int find_driver_letter(int drive)
   return -1; /* Not found */
 }
 
+int find_slot_drive(int slot)
+{
+  int drive;
+
+  for (drive = 3; drive <= 26; drive++)
+    if (find_driver_letter(drive) == slot)
+      return drive;
+  return -1;
+}
+
 int main(int argc, char *argv[])
 {
   int count, idx;
   int drive, fuji_unit;
   uint8_t rw;
   DeviceSlot dev_slots[NUM_DEV_SLOTS];
-  int mount_all = 0, eject = 0, mount_write = 0;
+  int mount_all = 0, eject = 0, mount_write = 0, tell_slot = 0;
 
 
-  count = getargs(argc, argv, "abebwb", &mount_all, &eject);
+  count = getargs(argc, argv, "abebwbtb", &mount_all, &eject, &mount_write, &tell_slot);
   if (count < 0) {
     if (count < 0 && -count != '-')
       fprintf(stderr, "Bad flag: %c\n", -count);
-    fprintf(stderr, "Usage: %s [-options] filename\n"
+    fprintf(stderr, "Usage: %s [-options] [drive:...]\n"
             "  options:\n"
             "\ta: mount all\n"
             "\te: eject listed drives, forgetting the disk image path\n"
             "\tw: mount disk as read/write\n"
+            "\tt N: show DOS drive letter for FujiNet slot N\n"
             , *argv);
     exit(1);
   }
@@ -68,6 +79,19 @@ int main(int argc, char *argv[])
   if (!fuji_get_device_slots(dev_slots, NUM_DEV_SLOTS)) {
     printf("Unable to read device slots\n");
     return 1;
+  }
+
+  if (tell_slot) {
+    if (argc - count < 1) {
+      fprintf(stderr, "Usage: %s -t N\n", *argv);
+      exit(1);
+    }
+    drive = find_slot_drive(atoi(argv[count]));
+    if (drive == -1)
+      printf("No DOS drive mapped to FujiNet slot %s\n", argv[count]);
+    else
+      printf("%c:\n", 'A' + drive - 1);
+    return 0;
   }
 
   if (mount_all) {

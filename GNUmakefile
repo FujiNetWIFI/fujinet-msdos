@@ -4,8 +4,9 @@ NCOPY = ncopy/ncopy.exe
 FNSHARE = fnshare/fnshare.exe
 PRINTER = printer/fujiprn.sys
 NGET = nget/nget.exe
-ISS = iss/iss.exe
+NPUT = nput/nput.exe
 FMOUNT = fmount/fmount.exe
+FCONFIG = fconfig/fconfig.com
 
 GIT_REF := $(shell git rev-parse --short HEAD)
 ifdef USE_GIT_REF
@@ -28,10 +29,11 @@ NCOPY_DEPS = $(call guess_deps,$(NCOPY))
 FNSHARE_DEPS = $(call guess_deps,$(FNSHARE))
 PRINTER_DEPS = $(call guess_deps,$(PRINTER))
 NGET_DEPS = $(call guess_deps,$(NGET))
-ISS_DEPS = $(call guess_deps,$(ISS))
+NPUT_DEPS = $(call guess_deps,$(NPUT))
 FMOUNT_DEPS = $(call guess_deps,$(FMOUNT))
+FCONFIG_DEPS = $(call guess_deps,$(FCONFIG))
 
-all: $(SYS) $(COMS) $(NCOPY) $(FNSHARE) $(PRINTER) $(NGET) $(ISS) $(FMOUNT)
+all: $(SYS) $(COMS) $(NCOPY) $(FNSHARE) $(PRINTER) $(NGET) $(NPUT) $(FMOUNT) $(FCONFIG)
 
 $(SYS): $(COMS) $(SYS_DEPS)
 	$(build_it)
@@ -52,23 +54,29 @@ $(PRINTER): $(PRINTER_DEPS)
 $(NGET): $(NGET_DEPS) sys/print.obj
 	$(build_it)
 
-$(ISS): $(COMS) $(ISS_DEPS)
+$(NPUT): $(COMS) $(NPUT_DEPS) sys/print.obj
 	$(build_it)
 
 $(FMOUNT): $(COMS) $(FMOUNT_DEPS)
 	$(build_it)
 
+$(FCONFIG): $(FCONFIG_DEPS)
+	cd $(dir $@) && sh build.sh
+
 # Create builds directory and copy all executables
 builds: all
 	@mkdir -p builds
 	@echo -n "Copying executables to builds directory..."
-	@cp -u $(SYS) $(PRINTER) $(NCOPY) $(FNSHARE) $(NGET) $(ISS) $(FMOUNT) builds/
+	@cp -u $(SYS) $(PRINTER) $(NCOPY) $(FNSHARE) $(NGET) $(NPUT) $(FMOUNT) $(FCONFIG) builds/
 	@echo "Done."
+
+CLEAN_DIRS = $(sort $(dir $(SYS) $(COMS) $(NCOPY) $(FNSHARE) $(PRINTER) $(NGET) $(NPUT) $(FMOUNT) $(FCONFIG)))
 
 clean:
 	@echo "Cleaning up build artifacts..."
 	@rm -rf builds
-	@rm -f */*.exe */*.obj */*.lib
+	@for d in $(CLEAN_DIRS); do rm -f $$d*.exe $$d*.obj $$d*.lib $$d*.com $$d*.sys; done
+	@rm -f *.img
 	@echo "Done."
 
 sys/print.obj:

@@ -152,15 +152,12 @@ void dumpHex(void far *ptr, uint16_t count, uint16_t address)
   return;
 }
 
-void consolef(const char *format, ...)
+void vconsolef(const char *format, va_list args)
 {
   const char *pf;
-  va_list args;
   char leader;
   uint8_t width;
 
-
-  va_start(args, format);
 
   for (pf = format; pf && *pf; pf++) {
     switch (*pf) {
@@ -218,6 +215,16 @@ void consolef(const char *format, ...)
     }
   }
 
+  return;
+}
+
+void consolef(const char *format, ...)
+{
+  va_list args;
+
+
+  va_start(args, format);
+  vconsolef(format, args);
   va_end(args);
 
   return;
