@@ -2,13 +2,11 @@
 #include "fujinet.h"
 #include "sys_hdr.h"
 #include "fujicom.h"
-#include "print.h"
 #include <string.h>
 #include <dos.h>
 
 extern void End_code(void);
 
-static cmdFrame_t cmd; // FIXME - make this shared with init.c?
 
 uint16_t Media_check_cmd(SYSREQ far *req)
 {
@@ -47,11 +45,8 @@ uint16_t Input_flush_cmd(SYSREQ far *req)
 
 uint16_t Output_cmd(SYSREQ far *req)
 {
-    char c;
-    cmd.device = 0x40;
-    cmd.comnd = 'W';
-    c=req->io.buffer_ptr[0];
-    if (fujicom_command_write(&cmd,&c,1) != 'C')
+    char c = req->io.buffer_ptr[0];
+    if (!fujiF5_write(FUJI_DEVICEID_PRINTER, FUJICMD_WRITE, FUJI_FIELD_NONE, 0, 0, &c, 1))
         return ERROR_BIT | NOT_READY;
 
     return OP_COMPLETE;

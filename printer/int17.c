@@ -5,8 +5,6 @@
 #include "print.h"
 #include "commands.h"
 
-static cmdFrame_t _cmdFrame;
-
 #pragma data_seg("_CODE")
 
 /*
@@ -23,19 +21,15 @@ int int17(uint16_t direction, uint16_t cmdchar, uint16_t aux12, uint16_t aux34,
 	  void far *ptr, uint16_t length)
 #pragma aux int17 parm [dx] [ax] [cx] [si] [es bx] [di] value [ax]
 {
-    int reply;
     unsigned char ah=cmdchar >> 8;
     unsigned char al=cmdchar & 0xFF;
 
     _enable();
 
-    _cmdFrame.device = 0x40;
-    _cmdFrame.comnd = 'W';
-
     switch (ah)
     {
     case 0:
-        fujicom_command_write(&_cmdFrame,&al,1);
+        fujiF5_write(FUJI_DEVICEID_PRINTER, FUJICMD_WRITE, FUJI_FIELD_NONE, 0, 0, &al, 1);
         return 0;
     case 1:
         return 0;

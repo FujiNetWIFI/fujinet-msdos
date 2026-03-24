@@ -1,8 +1,7 @@
 #include "commands.h"
 #include "fujinet.h"
 #include "fujicom.h"
-#include "com.h"
-#include "print.h"
+#include "id8250.h"
 #include "dispatch.h"
 #include <stdint.h>
 #include <stddef.h>
@@ -35,7 +34,6 @@
 
 #endif /* __WATCOMC__ */
 
-cmdFrame_t cmd;
 union REGS regs;
 extern void *config_env, *driver_end;
 
@@ -76,11 +74,10 @@ uint16_t Init_cmd(SYSREQ far *req)
 
 void check_uart()
 {
-  extern PORT far *port; // FIXME - this is in fujicom.c
   int uart;
 
 
-  uart = port_identify_uart(port);
+  uart = port_identify_uart();
   switch (uart) {
   case UART_16550A:
     consolef("Serial port is 16550A w/FIFO\n");
