@@ -2,7 +2,6 @@
 #include "fujinet.h"
 #include "sys_hdr.h"
 #include "fujicom.h"
-#include "print.h"
 #include <string.h>
 #include <dos.h>
 
@@ -47,7 +46,7 @@ uint16_t Input_flush_cmd(SYSREQ far *req)
 uint16_t Output_cmd(SYSREQ far *req)
 {
     char c = req->io.buffer_ptr[0];
-    if (!fujiF5_write(FUJI_DEVICEID_PRINTER, FUJICMD_WRITE, FUJI_FIELD_NONE, 0, 0, &c, 1, NULL, 0))
+    if (!fujiF5_write(FUJI_DEVICEID_PRINTER, FUJICMD_WRITE, FUJI_FIELD_NONE, 0, 0, &c, 1))
         return ERROR_BIT | NOT_READY;
 
     return OP_COMPLETE;
