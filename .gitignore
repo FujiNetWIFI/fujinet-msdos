@@ -60,3 +60,4 @@ dkms.conf
 *.img
 *.zip
 .vscode/settings.json
+.vscode/c_cpp_properties.json
