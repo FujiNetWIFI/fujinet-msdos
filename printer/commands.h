@@ -32,4 +32,7 @@ extern uint16_t Get_l_d_map_cmd(SYSREQ far *req);
 extern uint16_t Set_l_d_map_cmd(SYSREQ far *req);
 extern uint16_t Unknown_cmd(SYSREQ far *req);
 
+extern int flush_prn_buf(void);
+extern int prn_buf_add(unsigned char c);
+
 #endif /* _COMMANDS_H */
