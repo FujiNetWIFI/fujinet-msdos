@@ -1,11 +1,12 @@
+
 ; FujiNet MS-DOS drivers
 ;
-; FUJI_PORT  - COM port: 1-4, hex I/O address (0x3F8 or 3F8h),
-;              optionally followed by ,irq (e.g. FUJI_PORT=2,3)
+; FUJI_PORT  - COM port: 1-4 - Uses default hardcoded address & irq, OR
+;                        Hex I/O address, followed by irq (e.g. FUJI_PORT=0x2f8,11)
 ;              Default: 1 (COM1)
 ; FUJI_BPS   - Baud rate (9600, 19200, 115200, etc.)
 ;              Default: 115200
-; NOTIME     - (fujinet.sys only) Do not set DOS clock from FujiNet
+; NOTIME     - Do not set DOS clock from FujiNet
 
 DEVICE=FUJINET.SYS FUJI_PORT=1 FUJI_BPS=115200
 DEVICE=FUJIPRN.SYS 
