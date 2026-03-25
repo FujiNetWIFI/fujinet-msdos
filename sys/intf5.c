@@ -1,9 +1,8 @@
-#include <dos.h>
-#include <i86.h>
-#include <fujicom.h>
-#include <stdint.h>
+#include "fujicom.h"
 #include "print.h"
 #include "commands.h"
+#include <fuji_f5.h>
+#include <dos.h>
 
 #pragma data_seg("_CODE")
 

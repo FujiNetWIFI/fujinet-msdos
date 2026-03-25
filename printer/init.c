@@ -1,8 +1,8 @@
 #include "commands.h"
 #include "fujinet.h"
-#include "fujicom.h"
-#include "id8250.h"
 #include "dispatch.h"
+#include "../sys/print.h"
+#include <fuji_f5.h>
 #include <stdint.h>
 #include <stddef.h>
 #include <string.h>
@@ -41,7 +41,6 @@ extern void set17(void);
 
 #pragma data_seg("_CODE")
 
-void check_uart();
 uint16_t parse_config(const uint8_t far *config_sys);
 
 uint16_t Init_cmd(SYSREQ far *req)
@@ -62,45 +61,11 @@ uint16_t Init_cmd(SYSREQ far *req)
 
   req->init.end_ptr = MK_FP(getCS(), (uint8_t *) &driver_end - unused);
 
-  fujicom_init();
-  check_uart();
-
   consolef("Installed\n");
   set17();
   consolef("INT 17 functions installed\n");
 
   return OP_COMPLETE;
-}
-
-void check_uart()
-{
-  int uart;
-
-
-  uart = port_identify_uart();
-  switch (uart) {
-  case UART_16550A:
-    consolef("Serial port is 16550A w/FIFO\n");
-    break;
-
-  case UART_16550:
-    consolef("Serial port is 16550\n");
-    break;
-
-  case UART_16450:
-    consolef("Serial port is 16450\n");
-    break;
-
-  case UART_8250:
-    consolef("Serial port is 8250\n");
-    break;
-
-  default:
-    consolef("Unknown serial port\n");
-    break;
-  }
-
-  return;
 }
 
 /* Parse CONFIG.SYS command line, returns number of bytes remaining in config_env */

@@ -4,6 +4,7 @@
 #include "fujicom.h"
 #include "print.h"
 #include "ioctl.h"
+#include <fuji_f5.h>
 #include <string.h>
 #include <dos.h>
 

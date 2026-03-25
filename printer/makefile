@@ -2,7 +2,7 @@ TARGET  = fujiprn.sys
 AS      = wasm -q
 ASFLAGS = -0 -mt -bt=DOS
 CC      = wcc -q
-CFLAGS  = -0 -bt=dos -ms -I../fujicom -s -osh -zu $(CPPFLAGS)
+CFLAGS  = -0 -bt=dos -ms -I../include -s -osh -zu $(CPPFLAGS)
 LD	= wlink OPTION quiet
 LDFLAGS = &
 	SYSTEM dos com &
@@ -12,12 +12,11 @@ LDFLAGS = &
 	  clname CODE &
 	  clname BSS &
 	  clname INIT &
-	OPTION MAP, NODEFAULTLIBS &
-	LIBPATH ../fujicom
+	OPTION MAP, NODEFAULTLIBS
 
-CFILES  = commands.c dispatch.c init.c print.c int17.c
+CFILES  = commands.c dispatch.c init.c int17.c
 AFILES  = header.asm iwrap.asm
-OBJS = $(CFILES:.c=.obj) $(AFILES:.asm=.obj)
+OBJS = $(CFILES:.c=.obj) $(AFILES:.asm=.obj) ../sys/print.obj
 
 $(TARGET): $(OBJS)
 	$(LD) $(LDFLAGS) &
@@ -25,7 +24,7 @@ $(TARGET): $(OBJS)
 	  statics &
 	  name $@ &
 	  file {$(OBJS)} &
-	  library {fujicoms.lib clibs.lib}
+	  library {clibs.lib}
 
 init.obj: init.c .AUTODEPEND
 	$(CC) $(CFLAGS) -nt=_INIT -nc=INIT -fo=$@ $<

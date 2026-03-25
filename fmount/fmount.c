@@ -5,6 +5,7 @@
 #include <string.h>
 #include <ctype.h>
 #include <i86.h>
+#include <stdlib.h>
 
 #define FUJI_SIGNATURE "FUJI"
 #define NUM_DEV_SLOTS 8

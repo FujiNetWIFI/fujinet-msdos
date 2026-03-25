@@ -35,15 +35,10 @@ jobs:
           version: "2.0"
           target: dos
 
-      - name: Build fujicom
-        working-directory: fujicom/
-        run: make
-
       - name: Build fujinet.sys
-        working-directory: sys/
         run: |
           make
-          cp fujinet.sys fujinet-${{ steps.short-sha.outputs.sha }}.sys
+          cp sys/fujinet.sys sys/fujinet-${{ steps.short-sha.outputs.sha }}.sys
 
       - name: Bump version and push tag
         id: tag-version

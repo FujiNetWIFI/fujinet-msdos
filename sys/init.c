@@ -5,6 +5,7 @@
 #include "id8250.h"
 #include "print.h"
 #include "dispatch.h"
+#include <fuji_f5.h>
 #include <stdint.h>
 #include <stddef.h>
 #include <string.h>

@@ -1,5 +1,4 @@
 SYS = sys/fujinet.sys
-COMS = fujicom/fujicoms.lib
 NCOPY = ncopy/ncopy.exe
 FNSHARE = fnshare/fnshare.exe
 PRINTER = printer/fujiprn.sys
