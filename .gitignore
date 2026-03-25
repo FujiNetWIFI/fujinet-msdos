@@ -53,6 +53,7 @@ dkms.conf
 
 *~
 *.sys
+!config.sys
 *.err
 #*#
 .#*
