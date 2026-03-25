@@ -29,7 +29,7 @@ int int17(uint16_t direction, uint16_t cmdchar, uint16_t aux12, uint16_t aux34,
     switch (ah)
     {
     case 0:
-        fujiF5_write(FUJI_DEVICEID_PRINTER, FUJICMD_WRITE, FUJI_FIELD_NONE, 0, 0, &al, 1);
+        prn_buf_add(al);
         return 0;
     case 1:
         return 0;
