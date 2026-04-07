@@ -7,7 +7,8 @@
 
 extern void End_code(void);
 
-#define PRN_BUF_SIZE 255
+#define PRN_BUF_SIZE  255
+#define PRN_BUF_FLUSH 250
 #define AUTO_FLUSH_TICKS (18 * 5)  // 5 seconds at 18.2 Hz
 
 static unsigned char prn_buf[PRN_BUF_SIZE];
@@ -31,21 +32,26 @@ int flush_prn_buf(void)
     int ok = 1;
     if (prn_buf_len > 0) {
         ok = fujiF5_write(FUJI_DEVICEID_PRINTER, FUJICMD_WRITE, FUJI_FIELD_NONE, 0, 0, prn_buf, prn_buf_len);
-        prn_buf_len = 0;
-        memset(prn_buf, 0, PRN_BUF_SIZE);
+        if (ok) {
+            prn_buf_len = 0;
+            memset(prn_buf, 0, PRN_BUF_SIZE);
+        }
     }
     return ok;
 }
 
 int prn_buf_add(unsigned char c)
 {
+    if (prn_buf_len >= PRN_BUF_SIZE)
+        if (!flush_prn_buf())
+            return 0;
     prn_buf[prn_buf_len++] = c;
     if (!buffering_enabled)
         return flush_prn_buf();
     last_activity = timer_counter;
     flush_pending = 0;
-    if (prn_buf_len >= PRN_BUF_SIZE)
-        return flush_prn_buf();
+    if (prn_buf_len >= PRN_BUF_FLUSH)
+        flush_prn_buf();
     return 1;
 }
 
