@@ -38,6 +38,7 @@ union REGS regs;
 extern void *config_env, *driver_end;
 
 extern void set17(void);
+extern void install_timer_handler(void);
 
 #pragma data_seg("_CODE")
 
@@ -64,6 +65,8 @@ uint16_t Init_cmd(SYSREQ far *req)
   consolef("Installed\n");
   set17();
   consolef("INT 17 functions installed\n");
+  install_timer_handler();
+  consolef("Auto-flush timer installed\n");
 
   return OP_COMPLETE;
 }
