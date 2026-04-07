@@ -34,5 +34,9 @@ extern uint16_t Unknown_cmd(SYSREQ far *req);
 
 extern int flush_prn_buf(void);
 extern int prn_buf_add(unsigned char c);
+extern void idle_flush(void);
+extern void dos_flush(void);
+extern void install_timer_handler(void);
+extern void uninstall_timer_handler(void);
 
 #endif /* _COMMANDS_H */
