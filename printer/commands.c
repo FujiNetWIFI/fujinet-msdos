@@ -16,6 +16,7 @@ static volatile uint16_t timer_counter = 0;
 static volatile uint16_t last_activity = 0;
 static volatile uint8_t flush_pending = 0;
 static uint8_t far *indos_flag = NULL;
+static uint8_t buffering_enabled = 0;
 
 // Defined in iwrap.asm
 extern uint16_t old_timer_off;
@@ -39,6 +40,8 @@ int flush_prn_buf(void)
 int prn_buf_add(unsigned char c)
 {
     prn_buf[prn_buf_len++] = c;
+    if (!buffering_enabled)
+        return flush_prn_buf();
     last_activity = timer_counter;
     flush_pending = 0;
     if (prn_buf_len >= PRN_BUF_SIZE)
@@ -90,6 +93,14 @@ void install_timer_handler(void)
     old_idle_off = FP_OFF(old);
     old_idle_seg = FP_SEG(old);
     _dos_setvect(0x28, MK_FP(getCS(), (uint16_t)idle_vect));
+
+    // Buffer + timer + INT 28h require DOS 3.0+
+    _asm {
+        mov  ah, 30h
+        int  21h
+        mov  buffering_enabled, al
+    }
+    buffering_enabled = (buffering_enabled >= 3) ? 1 : 0;
 
     timer_counter = 0;
     last_activity = 0;
