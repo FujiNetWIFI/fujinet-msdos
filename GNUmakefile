@@ -6,6 +6,8 @@ NGET = nget/nget.exe
 NPUT = nput/nput.exe
 FMOUNT = fmount/fmount.exe
 FCONFIG = fconfig/fconfig.com
+FMALL = fmall/fmall.com
+FRESET = freset/freset.com
 
 GIT_REF := $(shell git rev-parse --short HEAD)
 ifdef USE_GIT_REF
@@ -31,8 +33,10 @@ NGET_DEPS = $(call guess_deps,$(NGET))
 NPUT_DEPS = $(call guess_deps,$(NPUT))
 FMOUNT_DEPS = $(call guess_deps,$(FMOUNT))
 FCONFIG_DEPS = $(call guess_deps,$(FCONFIG))
+FMALL_DEPS = $(call guess_deps,$(FMALL))
+FRESET_DEPS = $(call guess_deps,$(FRESET))
 
-all: $(SYS) $(COMS) $(NCOPY) $(FNSHARE) $(PRINTER) $(NGET) $(NPUT) $(FMOUNT) $(FCONFIG)
+all: $(SYS) $(COMS) $(NCOPY) $(FNSHARE) $(PRINTER) $(NGET) $(NPUT) $(FMOUNT) $(FCONFIG) $(FMALL) $(FRESET)
 
 $(SYS): $(COMS) $(SYS_DEPS)
 	$(build_it)
@@ -62,14 +66,20 @@ $(FMOUNT): $(COMS) $(FMOUNT_DEPS)
 $(FCONFIG): $(FCONFIG_DEPS)
 	cd $(dir $@) && sh build.sh
 
+$(FMALL): $(FMALL_DEPS)
+	$(build_it)
+
+$(FRESET): $(FRESET_DEPS)
+	$(build_it)
+
 # Create builds directory and copy all executables
 builds: all
 	@mkdir -p builds
 	@echo -n "Copying executables to builds directory..."
-	@cp -u $(SYS) $(PRINTER) $(NCOPY) $(FNSHARE) $(NGET) $(NPUT) $(FMOUNT) $(FCONFIG) config.sys builds/
+	@cp -u $(SYS) $(PRINTER) $(NCOPY) $(FNSHARE) $(NGET) $(NPUT) $(FMOUNT) $(FCONFIG) $(FMALL) $(FRESET) config.sys builds/
 	@echo "Done."
 
-CLEAN_DIRS = $(sort $(dir $(SYS) $(COMS) $(NCOPY) $(FNSHARE) $(PRINTER) $(NGET) $(NPUT) $(FMOUNT) $(FCONFIG)))
+CLEAN_DIRS = $(sort $(dir $(SYS) $(COMS) $(NCOPY) $(FNSHARE) $(PRINTER) $(NGET) $(NPUT) $(FMOUNT) $(FCONFIG) $(FMALL) $(FRESET)))
 
 clean:
 	@echo "Cleaning up build artifacts..."
