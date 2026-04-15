@@ -2,14 +2,13 @@
  * Fetch routine
  */
 
-#include "fujicom.h"
 #include <string.h>
 #include <dos.h>
 
 const char url[256]="N:HTTP://api.open-notify.org/iss-now.json";
-const char query_lon[256]="N:/iss_position/longitude";
-const char query_lat[256]="N:/iss_position/latitude";
-const char query_ts[256]="N:/timestamp";
+const char query_lon[256]="/iss_position/longitude";
+const char query_lat[256]="/iss_position/latitude";
+const char query_ts[256]="/timestamp";
 union REGS r;
 struct SREGS sr;
 

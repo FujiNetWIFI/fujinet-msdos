@@ -7,7 +7,7 @@ LDFLAGS = SYSTEM dos OPTION MAP LIBPATH ../fujicom
 
 all: iss.exe
 
-iss.exe: fetch.obj ftime.obj grlib.obj iss.obj map.obj osd.obj sat.obj
+iss.exe: astros.obj fetch.obj ftime.obj grlib.obj iss.obj map.obj osd.obj sat.obj
 
 .obj.exe:
 	$(LD) $(LDFLAGS) NAME $@ file {$< ../sys/print.obj} LIBRARY {fujicoms.lib clibs.lib}

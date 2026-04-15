@@ -11,6 +11,7 @@
 #include "grlib.h"
 #include "map.h"
 #include "sat.h"
+#include "astros.h"
 
 char lat[16], lon[16];
 unsigned long ts;
@@ -42,6 +43,13 @@ int main()
 				{
 					case 0x1B:
 						goto bye;
+					case 'p':
+					case 'P':
+						astros();
+						osd(&lat,&lon,ts);
+						sat((char *)&lat,(char *)&lon);
+						timeout=60000;
+						break;
 					default:
 						timeout=1;
 						break;
