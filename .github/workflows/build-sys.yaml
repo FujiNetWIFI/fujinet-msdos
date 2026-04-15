@@ -29,6 +29,9 @@ jobs:
       - name: Git Safe Directory
         run: git config --global --add safe.directory ${{ github.workspace }}
 
+      - name: Install nasm
+        run: sudo apt-get install -y nasm
+
       - name: Setup Watcom
         uses: open-watcom/setup-watcom@v0
         with:
