@@ -21,8 +21,7 @@ void osd(char *lat, char *lon, unsigned long t)
         
         sprintf(tmp,"          %s",_asctime(&tod,buf));
 	gr_text(0,22,tmp);
-	sprintf(tmp,"           LATITUDE: %10s",lat);
+	sprintf(tmp,"  LAT: %10s    LON: %10s",lat,lon);
 	gr_text(0,23,tmp);
-	sprintf(tmp,"          LONGITUDE: %10s",lon);
-	gr_text(0,24,tmp);
+	gr_text(4,24,"[P]=Who is in space?  [ESC]=Quit");
 }
