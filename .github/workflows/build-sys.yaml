@@ -44,7 +44,7 @@ jobs:
 
       - name: Bump version and push tag
         id: tag-version
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request' && !startsWith(github.ref, 'refs/tags/')
         uses: laputansoft/github-tag-action@v4.6
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
@@ -55,7 +55,7 @@ jobs:
         with:
           body: |
             `fujinet.sys` MS-DOS driver for RS232 FujiNet
-          tag_name: ${{ steps.tag-version.outputs.new_tag }}
+          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || steps.tag-version.outputs.new_tag }}
           prerelease: ${{ !startsWith(github.ref, 'refs/tags/') }}
           files: ${{ github.workspace }}/sys/fujinet-${{ steps.short-sha.outputs.sha }}.sys
           generate_release_notes: true
