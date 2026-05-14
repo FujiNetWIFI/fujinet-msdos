@@ -53,8 +53,8 @@
 
 #define VID_SEG       0xB800
 #define POPUP_ROW     10
-#define POPUP_COL     30
-#define POPUP_WIDTH   20
+#define POPUP_COL     28
+#define POPUP_WIDTH   24
 #define POPUP_HEIGHT  5
 
 /* ============================================================
@@ -142,11 +142,11 @@ void draw_popup(void)
 {
     /* CP437 single-line box characters, matching fujinet-config */
     static const char lines[POPUP_HEIGHT][POPUP_WIDTH + 1] = {
-        "\xDA\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xBF",
-        "\xB3 M) Mount         \xB3",
-        "\xB3 R) Run Config    \xB3",
-        "\xB3 ESC) Cancel      \xB3",
-        "\xC0\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xD9",
+        "\xDA\xC4\xC4\xC4\xC4\xC4\xC4 FujiNet \xC4\xC4\xC4\xC4\xC4\xC4\xC4\xBF",
+        "\xB3 M) Mount Config Disk \xB3",
+        "\xB3 R) Run Config        \xB3",
+        "\xB3 ESC) Cancel          \xB3",
+        "\xC0\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xD9",
     };
     int row;
     for (row = 0; row < POPUP_HEIGHT; row++) {
@@ -154,13 +154,21 @@ void draw_popup(void)
             MK_FP(VID_SEG, ((POPUP_ROW + row) * 80 + POPUP_COL) * 2);
         const char *s = lines[row];
         int col;
+        unsigned char border_row = (row == 0 || row == POPUP_HEIGHT - 1);
+        int paren_col = -1;
+        if (!border_row) {
+            for (col = 0; col < POPUP_WIDTH; col++) {
+                if (s[col] == ')') { paren_col = col; break; }
+            }
+        }
         for (col = 0; col < POPUP_WIDTH; col++) {
             unsigned char c = (unsigned char) s[col];
-            unsigned char attr = (c >= 0xB3 && c <= 0xDA)
-                                 ? 0x1F   /* bright white on blue: border */
-                                 : 0x17;  /* white on blue: body         */
+            unsigned char bright =
+                border_row
+                || col == 0 || col == POPUP_WIDTH - 1
+                || (paren_col >= 0 && col <= paren_col);
             vid[col*2]   = c;
-            vid[col*2+1] = attr;
+            vid[col*2+1] = bright ? 0x1F : 0x17;
         }
     }
 }
@@ -432,8 +440,8 @@ static void show_usage(void)
     printf("\n");
     printf("The TSR auto-detects which DOS drive letter FUJINET.SYS\n");
     printf("assigned to FujiNet slot 0 (the autorun.img drive) and uses\n");
-    printf("that for the M)ount and R)un Config actions.  The detected\n");
-    printf("drive letter is shown at install time.\n");
+    printf("that for the M)ount Config Disk and R)un Config actions.\n");
+    printf("The detected drive letter is shown at install time.\n");
 }
 
 int main(int argc, char **argv)
