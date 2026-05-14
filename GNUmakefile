@@ -75,7 +75,7 @@ $(FRESET): $(FRESET_DEPS)
 	$(build_it)
 
 $(CFGTSR): $(CFGTSR_DEPS)
-	cd $(dir $@) && sh build.sh
+	$(build_it)
 
 # Create builds directory and copy all executables
 builds: all
