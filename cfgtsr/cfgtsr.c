@@ -53,8 +53,8 @@
 
 #define VID_SEG       0xB800
 #define POPUP_ROW     10
-#define POPUP_COL     30
-#define POPUP_WIDTH   20
+#define POPUP_COL     28
+#define POPUP_WIDTH   24
 #define POPUP_HEIGHT  5
 
 /* ============================================================
@@ -142,11 +142,11 @@ void draw_popup(void)
 {
     /* CP437 single-line box characters, matching fujinet-config */
     static const char lines[POPUP_HEIGHT][POPUP_WIDTH + 1] = {
-        "\xDA\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xBF",
-        "\xB3 M) Mount         \xB3",
-        "\xB3 R) Run Config    \xB3",
-        "\xB3 ESC) Cancel      \xB3",
-        "\xC0\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xD9",
+        "\xDA\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xBF",
+        "\xB3 M) Mount Config Disk \xB3",
+        "\xB3 R) Run Config        \xB3",
+        "\xB3 ESC) Cancel          \xB3",
+        "\xC0\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xD9",
     };
     int row;
     for (row = 0; row < POPUP_HEIGHT; row++) {
@@ -432,8 +432,8 @@ static void show_usage(void)
     printf("\n");
     printf("The TSR auto-detects which DOS drive letter FUJINET.SYS\n");
     printf("assigned to FujiNet slot 0 (the autorun.img drive) and uses\n");
-    printf("that for the M)ount and R)un Config actions.  The detected\n");
-    printf("drive letter is shown at install time.\n");
+    printf("that for the M)ount Config Disk and R)un Config actions.\n");
+    printf("The detected drive letter is shown at install time.\n");
 }
 
 int main(int argc, char **argv)
