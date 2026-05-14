@@ -142,7 +142,7 @@ void draw_popup(void)
 {
     /* CP437 single-line box characters, matching fujinet-config */
     static const char lines[POPUP_HEIGHT][POPUP_WIDTH + 1] = {
-        "\xDA\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xC4\xBF",
+        "\xDA\xC4\xC4\xC4\xC4\xC4\xC4 FujiNet \xC4\xC4\xC4\xC4\xC4\xC4\xC4\xBF",
         "\xB3 M) Mount Config Disk \xB3",
         "\xB3 R) Run Config        \xB3",
         "\xB3 ESC) Cancel          \xB3",
@@ -154,13 +154,21 @@ void draw_popup(void)
             MK_FP(VID_SEG, ((POPUP_ROW + row) * 80 + POPUP_COL) * 2);
         const char *s = lines[row];
         int col;
+        unsigned char border_row = (row == 0 || row == POPUP_HEIGHT - 1);
+        int paren_col = -1;
+        if (!border_row) {
+            for (col = 0; col < POPUP_WIDTH; col++) {
+                if (s[col] == ')') { paren_col = col; break; }
+            }
+        }
         for (col = 0; col < POPUP_WIDTH; col++) {
             unsigned char c = (unsigned char) s[col];
-            unsigned char attr = (c >= 0xB3 && c <= 0xDA)
-                                 ? 0x1F   /* bright white on blue: border */
-                                 : 0x17;  /* white on blue: body         */
+            unsigned char bright =
+                border_row
+                || col == 0 || col == POPUP_WIDTH - 1
+                || (paren_col >= 0 && col <= paren_col);
             vid[col*2]   = c;
-            vid[col*2+1] = attr;
+            vid[col*2+1] = bright ? 0x1F : 0x17;
         }
     }
 }
