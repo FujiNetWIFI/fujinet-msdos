@@ -51,6 +51,7 @@ union REGS regs;
 extern void *config_env, *driver_end;
 
 extern void setf5(void);
+extern void setup_autoexec(uint8_t first_drive);
 
 #pragma data_seg("_CODE")
 
@@ -58,7 +59,7 @@ uint8_t get_fujinet_version();
 uint8_t get_set_time(uint8_t set_flag);
 void check_uart();
 uint16_t parse_config(const uint8_t far *config_sys);
-void find_drive_letter(uint8_t num_units);
+uint8_t find_drive_letter(uint8_t num_units);
 
 uint16_t Init_cmd(SYSREQ far *req)
 {
@@ -122,10 +123,14 @@ uint16_t Init_cmd(SYSREQ far *req)
     req->bpb.table = MK_FP(getCS(), fn_bpb_pointers);
   }
 
-  find_drive_letter(req->init.num_units);
+  {
+    uint8_t first = find_drive_letter(req->init.num_units);
 
-  setf5();
-  consolef("INT F5 Functions installed.\n");
+    setf5();
+    consolef("INT F5 Functions installed.\n");
+
+    setup_autoexec(first);
+  }
 
   return OP_COMPLETE;
 }
@@ -318,7 +323,7 @@ uint16_t parse_config(const uint8_t far *config_sys)
   return buf - (char *) &config_env;
 }
 
-void find_drive_letter(uint8_t num_units)
+uint8_t find_drive_letter(uint8_t num_units)
 {
   uint8_t far *lol;
   char first;
@@ -331,7 +336,10 @@ void find_drive_letter(uint8_t num_units)
       }
 
   // Undocumented but reliable field:
-  // The number of current block devices in the List of Lists at 0x20
+  // The number of current block devices in the List of Lists at 0x20.
+  // Our unit 0 maps to FujiNet slot 0 (the autorun.img slot), so `first`
+  // is the DOS letter where the firmware auto-mounted autorun.img.
   first = lol[0x20] + 'A';
   consolef("FujiNet attached to drives %c:-%c:\n", first, first + num_units - 1);
+  return (uint8_t) first;
 }
