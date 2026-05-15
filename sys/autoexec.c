@@ -3,18 +3,16 @@
 #include "commands.h"
 #include <stdint.h>
 #include <stddef.h>
-#include <string.h>
 #include <stdlib.h>
 #include <dos.h>
 
 #pragma data_seg("_CODE")
 
-extern void int28_vect(void);
+extern void int21_vect(void);
 
 uint8_t fn_first_drive  = 0;
 uint8_t fn_autoexec_armed = 0;
-uint8_t fn_template_pos = 0;
-void (__interrupt __far *fn_old_int28)(void);
+void (__interrupt __far *fn_old_int21)(void);
 
 static const char autoexec_cmd_template[] =
     "IF EXIST ?:\\CONFIG.EXE ?:\\CONFIG.EXE\r";
@@ -24,13 +22,6 @@ static const char autoexec_cmd_template[] =
 #define KB_TAIL_OFF         0x1C
 #define KB_BUF_START        0x1E
 #define KB_BUF_END          0x3E
-
-static int kb_buffer_empty(void)
-{
-    volatile uint16_t far *head = MK_FP(BDA_SEG, KB_HEAD_OFF);
-    volatile uint16_t far *tail = MK_FP(BDA_SEG, KB_TAIL_OFF);
-    return *head == *tail;
-}
 
 static int kb_stuff_char(uint8_t ch)
 {
@@ -52,28 +43,17 @@ static int kb_stuff_char(uint8_t ch)
     return 1;
 }
 
-void int28_work(void)
+void int21_inject(void)
 {
+    const char *p = autoexec_cmd_template;
     char ch;
 
-    if (!fn_autoexec_armed)
-        return;
-
-    // On the very first fire, abort if the user already typed something.
-    // Once we've started injecting, stay in our sequence regardless.
-    if (fn_template_pos == 0 && !kb_buffer_empty()) {
-        fn_autoexec_armed = 0;
-        return;
-    }
-
-    while ((ch = autoexec_cmd_template[fn_template_pos]) != 0) {
+    for (; (ch = *p) != 0; p++) {
         if (ch == '?')
             ch = fn_first_drive;
         if (!kb_stuff_char((uint8_t) ch))
-            return;  // buffer full -- resume on next INT 28h
-        fn_template_pos++;
+            break;
     }
-
     fn_autoexec_armed = 0;
 }
 
@@ -84,8 +64,8 @@ void setup_autoexec(uint8_t first_drive)
 
     fn_first_drive = first_drive;
     fn_autoexec_armed = 1;
-    fn_old_int28 = _dos_getvect(0x28);
-    _dos_setvect(0x28, MK_FP(getCS(), int28_vect));
+    fn_old_int21 = _dos_getvect(0x21);
+    _dos_setvect(0x21, MK_FP(getCS(), int21_vect));
     consolef("Auto-run armed for %c:\\CONFIG.EXE (slot 0 / autorun.img)\n",
              first_drive);
 }
