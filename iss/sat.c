@@ -41,8 +41,6 @@ void sat(char *lat_s, char *lon_s)
 		{
 			if (b<0)
 				gr_pset(x+j,y+i,3);
-			else
-				gr_pset(x+j,y+i,0);
 			b <<= 1;
 		}
 	}
