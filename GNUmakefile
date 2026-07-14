@@ -18,7 +18,7 @@ DISK_IMG ?= fn-msdos.img
 endif
 
 define build_it
-	make -C $(dir $@)
+	make -C $(dir $@) FUJINET_TRANSPORT="$(FUJINET_TRANSPORT)"
 endef
 
 define guess_deps
@@ -94,7 +94,7 @@ clean:
 	@echo "Done."
 
 sys/print.obj:
-	make -C $(dir $@)
+	make -C $(dir $@) FUJINET_TRANSPORT="$(FUJINET_TRANSPORT)"
 
 zip: builds
 	@echo "Creating fn-msdos.zip..."
@@ -107,4 +107,3 @@ disk: builds
 	@mformat -i $(DISK_IMG)
 	@mcopy -i $(DISK_IMG) builds/* ::
 	@echo "Created disk image $(DISK_IMG). Done."
-
