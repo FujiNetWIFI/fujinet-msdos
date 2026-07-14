@@ -29,6 +29,7 @@
 *.dylib
 
 # Executables
+*.com
 *.exe
 *.out
 *.app
@@ -53,11 +54,12 @@ dkms.conf
 
 *~
 *.sys
-!config.sys
+!/config.sys
 *.err
 #*#
 .#*
 
+/builds/
 *.img
 *.zip
 tests/build/

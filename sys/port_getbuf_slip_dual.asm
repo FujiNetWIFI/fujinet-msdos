@@ -2,7 +2,8 @@
 
 ;-----------------------------------------------------------------------------
 ; Macro to wait for a character with timeout
-; On entry: SI = start tick count, ES = BIOS_DATA_SEG
+; On entry: SI = end tick count for firmware, start tick count for NIO.
+;           ES = BIOS_DATA_SEG
 ; On exit: AL = character received, or jumps to timeout_label if timeout
 ; Destroys: AH, DX
 ;-----------------------------------------------------------------------------
@@ -18,6 +19,7 @@ wait_loop:
 
 skip_timeout:
 	in	al, dx
+IFDEF FUJINET_TRANSPORT_NIO
 	push	ax
 	and	al, LSR_OE OR LSR_PE OR LSR_FE OR LSR_BI
 	jz	no_lsr_error
@@ -25,6 +27,7 @@ skip_timeout:
 	mov	_port_slip_last_reason, PORT_SLIP_REASON_LINE_STATUS
 no_lsr_error:
 	pop	ax
+ENDIF
 	test	al, LSR_DR
 	jnz	got_char
 
@@ -33,12 +36,18 @@ no_lsr_error:
 
 	sti
 	mov	ax, es:[BIOS_TICK_OFFSET]
+IFDEF FUJINET_TRANSPORT_NIO
 	sub	ax, si
 	cmp	ax, SLIPD_PARAM_TIMEOUT
+ELSE
+	cmp	ax, si
+ENDIF
 	jb	wait_loop
 
 	; Timeout occurred
+IFDEF FUJINET_TRANSPORT_NIO
 	mov	_port_slip_last_reason, PORT_SLIP_REASON_TIMEOUT
+ENDIF
 	jmp	timeout_label
 
 got_char:
@@ -113,8 +122,10 @@ _port_getbuf_slip_dual PROC NEAR
 
 	push	ds			; [bp-14] Save original DS
 
+IFDEF FUJINET_TRANSPORT_NIO
 	mov	_port_slip_last_reason, PORT_SLIP_REASON_NONE
 	mov	_port_slip_last_lsr, 0
+ENDIF
 
 	mov	di, SLIPD_PARAM_HDR_BUF	; Start with header buffer
 	mov	cx, SLIPD_PARAM_HDR_LEN	; CX = header length (remaining)
@@ -148,6 +159,9 @@ _port_getbuf_slip_dual PROC NEAR
 	; Phase 1: Sync to frame - discard until SLIP_END
 slipd_sync:
 	mov	si, es:[BIOS_TICK_OFFSET]
+IFNDEF FUJINET_TRANSPORT_NIO
+	add	si, SLIPD_PARAM_TIMEOUT
+ENDIF
 	SLIPD_WAIT_CHAR slipd_done
 	cmp	al, SLIP_END
 	jne	slipd_sync
@@ -155,6 +169,9 @@ slipd_sync:
 	; Phase 2: Skip additional SLIP_END bytes
 slipd_skip_end:
 	mov	si, es:[BIOS_TICK_OFFSET]
+IFNDEF FUJINET_TRANSPORT_NIO
+	add	si, SLIPD_PARAM_TIMEOUT
+ENDIF
 	SLIPD_WAIT_CHAR slipd_done
 	cmp	al, SLIP_END
 	je	slipd_skip_end
@@ -179,7 +196,9 @@ slipd_store_byte:
 	mov	cx, SLIPD_PARAM_DATA_LEN
 	test	cx, cx
 	jnz	slipd_switch_to_data
+IFDEF FUJINET_TRANSPORT_NIO
 	mov	_port_slip_last_reason, PORT_SLIP_REASON_BUFFER_FULL
+ENDIF
 	jmp	slipd_done		; No data buffer, we're done
 
 slipd_switch_to_data:
@@ -195,12 +214,18 @@ slipd_switch_to_data:
 slipd_read_next:
 	; Read next byte
 	mov	si, es:[BIOS_TICK_OFFSET]
+IFNDEF FUJINET_TRANSPORT_NIO
+	add	si, SLIPD_PARAM_TIMEOUT
+ENDIF
 	SLIPD_WAIT_CHAR slipd_done
 	jmp	slipd_decode_loop
 
 slipd_handle_escape:
 	; Read escaped byte
 	mov	si, es:[BIOS_TICK_OFFSET]
+IFNDEF FUJINET_TRANSPORT_NIO
+	add	si, SLIPD_PARAM_TIMEOUT
+ENDIF
 	SLIPD_WAIT_CHAR slipd_done
 
 	; Decode escape sequence
