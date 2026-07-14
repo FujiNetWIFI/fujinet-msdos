@@ -9,6 +9,34 @@ https://github.com/FujiNetWIFI/fujinet-firmware/wiki/MS%E2%80%90DOS-BIOS-Specifi
 
 Can be found here: https://github.com/FujiNetWIFI/fujinet-rs232/tree/main/sys
 
+## Installation Detection
+
+Programs can detect whether the FujiNet PC BIOS handler is installed without
+contacting the FujiNet device. This detection call is available in both
+firmware and NIO transport builds.
+
+Call:
+
+| Register | Value       |
+|---       |---          |
+| AX       | 0000h       |
+
+Return if installed:
+
+| Register | Value                                      |
+|---       |---                                         |
+| CF       | Clear                                      |
+| AX       | F501h (FujiNet INT F5 API, version 1)      |
+| DS:SI    | Pointer to a null-terminated `FUJINET` string |
+
+Callers should set CF before invoking INT F5. If CF is still set after the
+interrupt, or AX is not F501h, treat the handler as not installed or not
+compatible.
+
+Firmware transport builds also accept firmware command calls through
+INT F5. NIO transport builds only implement this detection call and return CF
+set for other INT F5 calls.
+
 ## Registers Used
 
 | Register | Description                            |
