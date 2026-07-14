@@ -21,7 +21,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "fuji_f5.h"
+#include "fuji_firmware.h"
 
 /* ---- Multiplex protocol ---- */
 
@@ -36,7 +36,7 @@
 #define HOTKEY_SCAN     0x32   /* M make-code */
 
 /* ---- Firmware commands ---- */
-/* FUJI_DEVICEID_FUJINET comes from fuji_f5.h */
+/* FUJI_DEVICEID_FUJINET comes from fuji_firmware.h */
 
 #define FUJICMD_SET_BOOT_MODE  0xD6
 
