@@ -14,19 +14,8 @@
 #define COM4_INTERRUPT    11
 
 extern uint16_t port_uart_base;
-extern uint8_t port_slip_last_reason;
-extern uint8_t port_slip_last_lsr;
-
-enum {
-    PORT_SLIP_REASON_NONE = 0,
-    PORT_SLIP_REASON_TIMEOUT = 1,
-    PORT_SLIP_REASON_BUFFER_FULL = 2,
-    PORT_SLIP_REASON_LINE_STATUS = 3
-};
 
 extern void cdecl port_init(uint16_t base, uint16_t divisor);
-extern void cdecl port_flush_rx(void);
-extern void cdecl port_wait_tx_empty(void);
 extern uint16_t cdecl port_getbuf_slip_dual(void *hdr_buf, uint16_t hdr_len,
                                             void far *data_buf, uint16_t data_len,
                                             uint16_t timeout);

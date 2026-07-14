@@ -1,6 +1,6 @@
 ;-----------------------------------------------------------------------------
 ; Macro to wait for a character with timeout
-; On entry: SI = start tick count, ES = segment 40h
+; On entry: SI = end tick count, ES = segment 40h
 ; On exit: AL = character received, or jumps to timeout_label if timeout
 ; Destroys: AH, DX
 ;-----------------------------------------------------------------------------
@@ -24,8 +24,7 @@ skip_timeout:
 
 	sti
 	mov	ax, es:[6Ch]
-	sub	ax, si
-	cmp	ax, SLIP_LOCAL_TIMEOUT_TICKS
+	cmp	ax, si
 	jb	wait_loop
 
 	; Timeout occurred
@@ -118,6 +117,7 @@ _port_getbuf_slip PROC NEAR
 	; Phase 1: Sync to frame - discard until we see SLIP_END
 slip_sync:
 	mov	si, es:[6Ch]
+	add	si, SLIP_LOCAL_TIMEOUT_TICKS
 	SLIP_WAIT_CHAR slip_done
 	cmp	al, SLIP_END
 	jne	slip_sync		 ; Keep looking for frame start
@@ -125,6 +125,7 @@ slip_sync:
 	; Phase 2: Skip any additional SLIP_END bytes
 slip_skip_end:
 	mov	si, es:[6Ch]
+	add	si, SLIP_LOCAL_TIMEOUT_TICKS
 	SLIP_WAIT_CHAR slip_done
 	cmp	al, SLIP_END
 	je	slip_skip_end		 ; Another END, keep skipping
@@ -149,12 +150,14 @@ slip_store_byte:
 
 	; Read next byte and continue
 	mov	si, es:[6Ch]
+	add	si, SLIP_LOCAL_TIMEOUT_TICKS
 	SLIP_WAIT_CHAR slip_done
 	jmp	slip_decode_loop
 
 slip_handle_escape:
 	; Read the next byte after ESC to determine what to write
 	mov	si, es:[6Ch]
+	add	si, SLIP_LOCAL_TIMEOUT_TICKS
 	SLIP_WAIT_CHAR slip_done
 
 	; Decode the escape sequence

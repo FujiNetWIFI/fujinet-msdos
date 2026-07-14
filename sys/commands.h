@@ -4,10 +4,6 @@
 #include "sys_hdr.h"
 #include <stdint.h>
 
-#ifdef FUJINET_TRANSPORT_NIO
-#include "ioctl.h"
-#endif
-
 extern __segment getCS(void);
 #pragma aux getCS = \
     "mov ax, cs";
@@ -35,10 +31,5 @@ extern uint16_t Ioctl_cmd(SYSREQ far *req);
 extern uint16_t Get_l_d_map_cmd(SYSREQ far *req);
 extern uint16_t Set_l_d_map_cmd(SYSREQ far *req);
 extern uint16_t Unknown_cmd(SYSREQ far *req);
-
-#ifdef FUJINET_TRANSPORT_NIO
-extern uint16_t nio_handle_control_call(fuji_ioctl_nio_call far *call,
-                                        uint8_t unit);
-#endif
 
 #endif /* _COMMANDS_H */

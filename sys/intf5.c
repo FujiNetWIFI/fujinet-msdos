@@ -1,7 +1,7 @@
 #include "fujicom.h"
 #include "print.h"
 #include "commands.h"
-#include <fuji_firmware.h>
+#include <fuji_f5.h>
 #include <dos.h>
 
 #pragma data_seg("_CODE")
@@ -44,4 +44,11 @@ int intf5(uint16_t descrdir, uint16_t devcom, uint16_t aux12, uint16_t aux34,
   }
 
   return success ? 'C' : 'E';
+}
+
+void setf5(void)
+{
+    extern void intf5_vect();
+
+    _dos_setvect(0xF5, MK_FP(getCS(), intf5_vect));
 }

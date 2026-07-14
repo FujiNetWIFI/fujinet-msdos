@@ -2,6 +2,7 @@
  */
 
 #include "fujifs.h"
+#include <fuji_f5.h>
 #include <string.h>
 #include <strings.h>
 #include <ctype.h>

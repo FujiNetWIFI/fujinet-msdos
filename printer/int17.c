@@ -1,6 +1,6 @@
 #include <dos.h>
 #include <i86.h>
-#include <fuji_firmware.h>
+#include <fuji_f5.h>
 #include <stdint.h>
 #include "../sys/print.h"
 #include "commands.h"
