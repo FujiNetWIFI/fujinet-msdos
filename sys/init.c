@@ -1,11 +1,16 @@
 #include "commands.h"
 #include "fujinet.h"
 #include "fujicom.h"
+#ifdef FUJINET_TRANSPORT_NIO
+#include "nio.h"
+#endif
 #include "portio.h"
 #include "id8250.h"
 #include "print.h"
 #include "dispatch.h"
-#include <fuji_f5.h>
+#ifndef FUJINET_TRANSPORT_NIO
+#include <fuji_firmware.h>
+#endif
 #include <stdint.h>
 #include <stddef.h>
 #include <string.h>
@@ -54,8 +59,13 @@ extern void setf5(void);
 
 #pragma data_seg("_CODE")
 
+#ifdef FUJINET_TRANSPORT_NIO
+uint8_t probe_fujinet_nio();
+void nio_driver_config_init(void);
+#else
 uint8_t get_fujinet_version();
 uint8_t get_set_time(uint8_t set_flag);
+#endif
 void check_uart();
 uint16_t parse_config(const uint8_t far *config_sys);
 void find_drive_letter(uint8_t num_units);
@@ -81,9 +91,14 @@ uint16_t Init_cmd(SYSREQ far *req)
   fujicom_init();
   check_uart();
 
+#ifdef FUJINET_TRANSPORT_NIO
+  nio_driver_config_init();
+  err = probe_fujinet_nio();
+#else
   err = get_fujinet_version();
   if (!err)
     err = get_set_time(!getenv("NOTIME"));
+#endif
 
   // If get_ returned error, FujiNet is probably not connected
   if (err) {
@@ -125,11 +140,12 @@ uint16_t Init_cmd(SYSREQ far *req)
   find_drive_letter(req->init.num_units);
 
   setf5();
-  consolef("INT F5 Functions installed.\n");
+  consolef("INT F5 detection installed.\n");
 
   return OP_COMPLETE;
 }
 
+#ifndef FUJINET_TRANSPORT_NIO
 /* Returns non-zero on error */
 uint8_t get_fujinet_version()
 {
@@ -152,7 +168,27 @@ uint8_t get_fujinet_version()
 
   return 0;
 }
+#endif
 
+#ifdef FUJINET_TRANSPORT_NIO
+/* Returns non-zero on error */
+uint8_t probe_fujinet_nio()
+{
+  nio_disk_info_t info;
+
+
+  if (!nio_disk_info(1, &info)) {
+    consolef("Unable to contact FujiNet NIO DiskService.\nAborted.\n");
+    return 1;
+  }
+
+  consolef("FujiNet NIO DiskService detected.\n");
+
+  return 0;
+}
+#endif
+
+#ifndef FUJINET_TRANSPORT_NIO
 /* Returns non-zero on error */
 uint8_t get_set_time(uint8_t set_flag)
 {
@@ -194,6 +230,7 @@ uint8_t get_set_time(uint8_t set_flag)
 
   return 0;
 }
+#endif
 
 void check_uart()
 {

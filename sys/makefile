@@ -15,7 +15,7 @@ LDFLAGS = &
 	OPTION MAP, NODEFAULTLIBS &
 	LIBPATH ../fujicom
 
-CFILES  = commands.c dispatch.c fujicom.c id8250.c init.c intf5.c print.c
+CFILES  = commands.c dispatch.c port_config.c fujicom.c id8250.c init.c print.c setf5.c intf5.c
 AFILES  = header.asm iwrap.asm portio.asm
 OBJS = $(CFILES:.c=.obj) $(AFILES:.asm=.obj)
 

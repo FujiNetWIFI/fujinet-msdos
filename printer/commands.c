@@ -1,7 +1,7 @@
 #include "commands.h"
 #include "fujinet.h"
 #include "sys_hdr.h"
-#include <fuji_f5.h>
+#include <fuji_firmware.h>
 #include <string.h>
 #include <dos.h>
 

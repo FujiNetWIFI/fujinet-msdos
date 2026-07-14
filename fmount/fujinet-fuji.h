@@ -1,4 +1,4 @@
-#include <fuji_f5.h>
+#include <fuji_firmware.h>
 
 #warning "FIXME - use the real fujinet-fuji.h"
 
