@@ -2,7 +2,7 @@
 #include "fujinet.h"
 #include "dispatch.h"
 #include "../sys/print.h"
-#include <fuji_firmware.h>
+#include <fuji_f5.h>
 #include <stdint.h>
 #include <stddef.h>
 #include <string.h>

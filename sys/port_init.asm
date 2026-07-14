@@ -40,13 +40,6 @@ _port_init	PROC	NEAR
 	mov	al, LCR_8N1
 	out	dx, al
 
-	; Enable and clear FIFOs on 16550-compatible UARTs.
-	; Keep the trigger at 1 byte; this polling driver wants minimum latency.
-	mov	dx, _port_uart_base
-	add	dx, UART_FCR_OFF
-	mov	al, FCR_ENABLE OR FCR_CLEAR_RX OR FCR_CLEAR_TX OR FCR_TRIGGER_1
-	out	dx, al
-
 	; Enable DTR, RTS, OUT2
 	mov	dx, _port_uart_base
 	add	dx, UART_MCR_OFF

@@ -5,7 +5,7 @@
  * @license GPL v. 3, see LICENSE for details.
  */
 
-#include <fuji_firmware.h>
+#include <fuji_f5.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
