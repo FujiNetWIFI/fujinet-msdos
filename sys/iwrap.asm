@@ -6,8 +6,10 @@ FUJIF5_DETECT_MAGIC	EQU	0F501h
 
 	PUBLIC intf5_vect_
 intf5_vect_ PROC NEAR
+IFDEF FUJINET_TRANSPORT_NIO
 	cmp	ax, 0
 	je	detect_
+ENDIF
 
 	push	bx
 	push	cx
@@ -34,19 +36,25 @@ intf5_vect_ PROC NEAR
 	pop	bx
 	iret
 
+IFDEF FUJINET_TRANSPORT_NIO
 detect_:
+	push	ds
 	push	cs
-	pop	ds
+	pop	es
 	mov	si, OFFSET fujif5_signature_
 	mov	ax, FUJIF5_DETECT_MAGIC
 	push	bp
 	mov	bp, sp
-	and	WORD PTR [bp+6], 0FFFEh
+	and	WORD PTR [bp+8], 0FFFEh
 	pop	bp
+	pop	ds
 	iret
+ENDIF
 intf5_vect_ ENDP
 
+IFDEF FUJINET_TRANSPORT_NIO
 fujif5_signature_	DB	"FUJINET", 0
+ENDIF
 
 _TEXT	ends
 

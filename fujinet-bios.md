@@ -27,7 +27,7 @@ Return if installed:
 |---       |---                                         |
 | CF       | Clear                                      |
 | AX       | F501h (FujiNet INT F5 API, version 1)      |
-| DS:SI    | Pointer to a null-terminated `FUJINET` string |
+| ES:SI    | Pointer to a null-terminated `FUJINET` string |
 
 Callers should set CF before invoking INT F5. If CF is still set after the
 interrupt, or AX is not F501h, treat the handler as not installed or not
