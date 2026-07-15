@@ -20,6 +20,12 @@
 
 #define TIMEOUT         100
 #define TIMEOUT_SLOW	15 * 1000
+/* FUJICMD_COPY_FILE runs entirely on the FujiNet side (source read + dest
+ * write against TNFS/SD) and sends nothing on the wire until it is done, so
+ * it needs a much longer receive timeout than every other command. Keep
+ * this in sync with FUJICMD_COPY_FILE in fujinet-commands.h. */
+#define FUJICMD_COPY_FILE 0xD8
+#define TIMEOUT_COPY	120 * 1000
 #define MAX_RETRIES	1
 #ifndef SERIAL_BPS
 #define SERIAL_BPS      115200
@@ -200,7 +206,7 @@ bool fuji_bus_call(uint8_t device, uint8_t fuji_cmd, uint8_t fields,
   fb_packet->data = reply;
   rlen = port_getbuf_slip_dual(fb_packet, sizeof(fb_packet->header),
                                fb_packet->data, reply_length,
-                               TIMEOUT_SLOW);
+                               fuji_cmd == FUJICMD_COPY_FILE ? TIMEOUT_COPY : TIMEOUT_SLOW);
 
 #if 0 //def DEBUG
   if (rlen)
