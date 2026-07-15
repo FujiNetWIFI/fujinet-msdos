@@ -20,7 +20,7 @@ FUJINET_TRANSPORT =
 !if "$(FUJINET_TRANSPORT)" == "NIO"
 TRANSPORT_CPPFLAGS = -DFUJINET_TRANSPORT_NIO
 TRANSPORT_ASFLAGS = -dFUJINET_TRANSPORT_NIO
-TRANSPORT_CFILES = commands_nio.c nio.c nio_protocol.c nio_transaction.c
+TRANSPORT_CFILES = commands_nio.c nio.c nio_disk_protocol.c nio_protocol.c nio_transaction.c
 F5_CFILES = intf5_nio.c
 !else
 TRANSPORT_CPPFLAGS =

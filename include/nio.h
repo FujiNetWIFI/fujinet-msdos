@@ -92,6 +92,7 @@ extern bool nio_call(uint8_t device, uint8_t command,
                      nio_response_t far *response);
 
 extern bool nio_disk_info(uint8_t slot, nio_disk_info_t far *info);
+extern bool nio_disk_clear_changed(uint8_t slot);
 extern bool nio_disk_read_sector(uint8_t slot, uint32_t lba,
                                  void far *buffer, uint16_t buffer_length,
                                  uint16_t far *bytes_read);

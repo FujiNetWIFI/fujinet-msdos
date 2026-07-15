@@ -9,9 +9,6 @@
 ; FUJI_BATCH_SECTORS
 ;            - Maximum sectors per NIO disk read/write request.
 ;              Default: 16, range: 1-16
-; FUJI_READAHEAD_SECTORS
-;            - Minimum sectors fetched for disk read-ahead.
-;              Default: 16, range: 1-16
 ; FUJI_IO_RETRIES
 ;            - Retry count for failed NIO disk reads.
 ;              Default: 2, range: 0-16

@@ -13,11 +13,13 @@
 #define SECTOR_SIZE     512
 #define MAX_BATCH_SECTORS 16
 #define DEFAULT_BATCH_SECTORS 16
-#define DEFAULT_READAHEAD_SECTORS 16
 #define DEFAULT_IO_RETRIES 2
 #define DEFAULT_NIO_RETRIES 2
 #define DEFAULT_NETWORK_TIMEOUT_MS (15 * 1000)
-#define CACHE_SECTORS 56
+/* DOS-side metadata/data cache. 40 sectors preserves the observed directory
+   metadata working set better than 24 while still freeing 8 KiB compared with
+   the earlier 56-sector cache. */
+#define CACHE_SECTORS 40
 
 extern void End_code(void);
 
@@ -34,12 +36,10 @@ static uint8_t cache_unit[CACHE_SECTORS];
 static uint32_t cache_lba[CACHE_SECTORS];
 static uint8_t cache_data[CACHE_SECTORS][SECTOR_SIZE];
 static uint8_t cache_next;
-static uint8_t readahead_data[MAX_BATCH_SECTORS][SECTOR_SIZE];
 static uint8_t info_cache_valid[FN_MAX_DEV];
 static nio_disk_info_t info_cache[FN_MAX_DEV];
 static uint8_t media_changed[FN_MAX_DEV];
 static uint8_t nio_batch_sectors = DEFAULT_BATCH_SECTORS;
-static uint8_t nio_readahead_sectors = DEFAULT_READAHEAD_SECTORS;
 static uint8_t nio_io_retries = DEFAULT_IO_RETRIES;
 static uint8_t nio_debug_io;
 static uint8_t nio_auto_downshift = 1;
@@ -115,16 +115,14 @@ static uint16_t parse_timeout_ms(const char *name, uint16_t default_value)
 void nio_driver_config_init(void)
 {
   nio_batch_sectors = parse_sector_count("FUJI_BATCH_SECTORS", DEFAULT_BATCH_SECTORS);
-  nio_readahead_sectors = parse_sector_count("FUJI_READAHEAD_SECTORS", DEFAULT_READAHEAD_SECTORS);
   nio_io_retries = parse_retry_count("FUJI_IO_RETRIES", DEFAULT_IO_RETRIES);
   nio_transport_retries = parse_retry_count("FUJI_NIO_RETRIES", DEFAULT_NIO_RETRIES);
   nio_debug_io = parse_flag("FUJI_DEBUG_IO", 0);
   nio_auto_downshift = parse_flag("FUJI_AUTO_DOWNSHIFT", 1);
   nio_network_timeout_ms = parse_timeout_ms("FUJI_NET_TIMEOUT_MS", DEFAULT_NETWORK_TIMEOUT_MS);
 
-  consolef("NIO batch/read-ahead/retries: %i/%i/%i tx=%i\n",
-           nio_batch_sectors, nio_readahead_sectors, nio_io_retries,
-           nio_transport_retries);
+  consolef("NIO batch/retries: %i/%i tx=%i\n",
+           nio_batch_sectors, nio_io_retries, nio_transport_retries);
   consolef("NIO network timeout: %i ms\n", nio_network_timeout_ms);
 }
 
@@ -440,6 +438,8 @@ uint16_t Build_bpb_cmd(SYSREQ far *req)
   }
 
   _fmemcpy(fn_bpb_pointers[req->unit], &buf[0x0b], sizeof(DOS_BPB));
+  if (nio_disk_clear_changed(unit_to_diskservice_slot(req->unit)))
+    info_cache_valid[req->unit] = 0;
 
 #if 0
   consolef("BPB for %i\n", req->unit);
@@ -529,15 +529,11 @@ uint16_t Input_cmd(SYSREQ far *req)
       batch = (uint16_t) (sector_max - sector);
 
     fetch = batch;
-    if (fetch < nio_readahead_sectors)
-      fetch = nio_readahead_sectors;
-    if ((uint32_t) fetch > (sector_max - sector))
-      fetch = (uint16_t) (sector_max - sector);
 
     for (attempt = 0; attempt <= nio_io_retries; attempt++) {
       bytes_read = 0;
       if (nio_disk_read_sectors(unit_to_diskservice_slot(req->unit), sector, fetch,
-                                readahead_data,
+                                &buf[done * SECTOR_SIZE],
                                 (uint16_t) (fetch * SECTOR_SIZE),
                                 &bytes_read) &&
           bytes_read >= (uint16_t) (fetch * SECTOR_SIZE)) {
@@ -554,8 +550,6 @@ uint16_t Input_cmd(SYSREQ far *req)
           new_limit = 1;
         if (nio_batch_sectors > new_limit)
           nio_batch_sectors = new_limit;
-        if (nio_readahead_sectors > new_limit)
-          nio_readahead_sectors = new_limit;
         consolef("FN read downshift n=%i err=%i rx=%i exp=%i\n",
                  new_limit, nio_last_error, nio_last_rx_len,
                  nio_last_expected_len);
@@ -580,13 +574,11 @@ uint16_t Input_cmd(SYSREQ far *req)
     }
 
     for (fill = 0; fill < fetch; fill++)
-      cache_store(req->unit, sector + fill, readahead_data[fill]);
+      cache_store(req->unit, sector + fill,
+                  &buf[(done + fill) * SECTOR_SIZE]);
 
-    _fmemcpy(&buf[done * SECTOR_SIZE], readahead_data,
-             (uint16_t) (batch * SECTOR_SIZE));
-
-    done += batch;
-    sector += batch;
+    done += fetch;
+    sector += fetch;
   }
   if (!done)
     return ERROR_BIT | GENERAL_FAIL;

@@ -35,8 +35,25 @@ These control the RS-232 connection to the FujiNet adapter:
 |-----------|---------|------------------------------------------------------------|
 | FUJI_PORT | 1       | Serial port to use: 1–4, or hex I/O address (e.g. `0x3F8`; optional trailing IRQ is parsed but unused by polling I/O) |
 | FUJI_BPS  | 115200  | Bits per second (9600, 19200, 115200, etc.)                |
+| FUJI_BATCH_SECTORS | 16 | Maximum sectors per NIO disk read/write request. Range: 1-16. Keep the default unless a serial backend cannot tolerate larger response frames. |
+| FUJI_IO_RETRIES | 2 | NIO disk read retry count before returning a DOS read failure. |
 | FUJI_NIO_RETRIES | 2 | Low-level NIO request/response retry count after UART timeout, overrun, short frame, length mismatch, or checksum failure. Set to 0 to disable. |
+| FUJI_AUTO_DOWNSHIFT | 1 | Reduces future NIO disk read batch size after large-frame transport corruption, then retries the current DOS request. |
+| FUJI_DEBUG_IO | 0 | Prints recovered NIO disk retry diagnostics while debugging. |
 | FUJI_NET_TIMEOUT_MS | 15000 | NIO network request/response timeout in milliseconds. |
+
+### NIO Disk Read Behavior
+
+The NIO driver batches sequential DOS sector reads into FujiNet DiskService
+multi-sector requests. This avoids one serial transaction per sector during
+common operations such as `DIR` and application loading.
+
+The driver also keeps a small 40-sector DOS-side cache for recently-read disk
+metadata and data. It intentionally does not perform speculative read-ahead:
+testing showed the useful performance gain comes from batching sectors DOS
+already requested, not from fetching extra sectors. After DOS rebuilds a BPB
+for a mounted disk, the driver sends `CLEAR_CHANGED` to DiskService so DOS does
+not repeatedly re-read volume metadata for a stale changed flag.
 
 ## Build Directions
 

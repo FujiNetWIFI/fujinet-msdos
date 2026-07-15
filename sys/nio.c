@@ -3,6 +3,7 @@
  */
 
 #include "nio.h"
+#include "nio_disk_protocol.h"
 #include "nio_protocol.h"
 #include "nio_transaction.h"
 #include "portio.h"
@@ -107,33 +108,6 @@ static void nio_bind_transaction(void)
   nio_transaction_bound = 1;
 }
 
-static void put_u16le(uint8_t far *p, uint16_t v)
-{
-  p[0] = (uint8_t) (v & 0xFF);
-  p[1] = (uint8_t) ((v >> 8) & 0xFF);
-}
-
-static void put_u32le(uint8_t far *p, uint32_t v)
-{
-  p[0] = (uint8_t) (v & 0xFF);
-  p[1] = (uint8_t) ((v >> 8) & 0xFF);
-  p[2] = (uint8_t) ((v >> 16) & 0xFF);
-  p[3] = (uint8_t) ((v >> 24) & 0xFF);
-}
-
-static uint16_t get_u16le(const uint8_t far *p)
-{
-  return (uint16_t) p[0] | ((uint16_t) p[1] << 8);
-}
-
-static uint32_t get_u32le(const uint8_t far *p)
-{
-  return (uint32_t) p[0]
-      | ((uint32_t) p[1] << 8)
-      | ((uint32_t) p[2] << 16)
-      | ((uint32_t) p[3] << 24);
-}
-
 bool nio_status_ok(uint8_t status)
 {
   return status == NIO_STATUS_OK;
@@ -166,22 +140,34 @@ bool nio_disk_info(uint8_t slot, nio_disk_info_t far *info)
   uint8_t resp[16];
   nio_response_t nr;
 
-  req[0] = NIO_DISK_VERSION;
-  req[1] = slot;
+  nio_disk_build_slot_request(slot, req, sizeof(req));
 
   if (!nio_call(NIO_DEVICEID_DISK, NIO_DISK_CMD_INFO,
-                req, sizeof(req), resp, sizeof(resp), &nr))
+                req, NIO_DISK_SLOT_REQUEST_SIZE, resp, sizeof(resp), &nr))
     return false;
-  if (!nio_status_ok(nr.status) || nr.payload_length < 12 || resp[0] != NIO_DISK_VERSION)
+  if (!nio_status_ok(nr.status) ||
+      !nio_disk_parse_info_response(resp, nr.payload_length, info))
     return nio_fail(nio_status_ok(nr.status) ? NIO_ERR_PAYLOAD : NIO_ERR_STATUS,
                     nio_last_rx_len, nio_last_expected_len);
+  return true;
+}
 
-  info->flags = resp[1];
-  info->slot = resp[4];
-  info->image_type = resp[5];
-  info->sector_size = get_u16le(&resp[6]);
-  info->sector_count = get_u32le(&resp[8]);
-  info->last_error = (nr.payload_length > 12) ? resp[12] : 0;
+bool nio_disk_clear_changed(uint8_t slot)
+{
+  uint8_t req[2];
+  uint8_t resp[8];
+  nio_response_t nr;
+
+  nio_disk_build_slot_request(slot, req, sizeof(req));
+
+  if (!nio_call(NIO_DEVICEID_DISK, NIO_DISK_CMD_CLEAR_CHANGED,
+                req, NIO_DISK_SLOT_REQUEST_SIZE, resp, sizeof(resp), &nr))
+    return false;
+  if (!nio_status_ok(nr.status) ||
+      !nio_disk_validate_response(resp, nr.payload_length,
+                                  NIO_DISK_CLEAR_CHANGED_RESPONSE_MIN_SIZE))
+    return nio_fail(nio_status_ok(nr.status) ? NIO_ERR_PAYLOAD : NIO_ERR_STATUS,
+                    nio_last_rx_len, nio_last_expected_len);
   return true;
 }
 
@@ -193,21 +179,17 @@ bool nio_disk_read_sector(uint8_t slot, uint32_t lba,
   nio_response_t nr;
   uint16_t data_len;
 
-  req[0] = NIO_DISK_VERSION;
-  req[1] = slot;
-  put_u32le(&req[2], lba);
-  put_u16le(&req[6], buffer_length);
+  nio_disk_build_read_sector_request(slot, lba, buffer_length, req, sizeof(req));
 
   if (!nio_call(NIO_DEVICEID_DISK, NIO_DISK_CMD_READ_SECTOR,
-                req, sizeof(req), rx_payload, sizeof(rx_payload), &nr))
+                req, NIO_DISK_READ_SECTOR_REQUEST_SIZE, rx_payload,
+                sizeof(rx_payload), &nr))
     return false;
-  if (!nio_status_ok(nr.status) || nr.payload_length < 11 || rx_payload[0] != NIO_DISK_VERSION)
+  if (!nio_status_ok(nr.status) ||
+      !nio_disk_parse_read_sector_response(rx_payload, nr.payload_length,
+                                           buffer_length, &data_len))
     return nio_fail(nio_status_ok(nr.status) ? NIO_ERR_PAYLOAD : NIO_ERR_STATUS,
                     nio_last_rx_len, nio_last_expected_len);
-
-  data_len = get_u16le(&rx_payload[9]);
-  if (data_len > buffer_length || nr.payload_length < (uint16_t) (11 + data_len))
-    return nio_fail(NIO_ERR_PAYLOAD, nio_last_rx_len, nio_last_expected_len);
 
   if (buffer && data_len)
     _fmemcpy(buffer, rx_payload + 11, data_len);
@@ -224,22 +206,18 @@ bool nio_disk_read_sectors(uint8_t slot, uint32_t lba, uint16_t count,
   nio_response_t nr;
   uint16_t data_len;
 
-  req[0] = NIO_DISK_VERSION;
-  req[1] = slot;
-  put_u32le(&req[2], lba);
-  put_u16le(&req[6], count);
-  put_u16le(&req[8], buffer_length);
+  nio_disk_build_read_sectors_request(slot, lba, count, buffer_length,
+                                      req, sizeof(req));
 
   if (!nio_call(NIO_DEVICEID_DISK, NIO_DISK_CMD_READ_SECTORS,
-                req, sizeof(req), rx_payload, sizeof(rx_payload), &nr))
+                req, NIO_DISK_READ_SECTORS_REQUEST_SIZE, rx_payload,
+                sizeof(rx_payload), &nr))
     return false;
-  if (!nio_status_ok(nr.status) || nr.payload_length < 13 || rx_payload[0] != NIO_DISK_VERSION)
+  if (!nio_status_ok(nr.status) ||
+      !nio_disk_parse_read_sectors_response(rx_payload, nr.payload_length,
+                                            buffer_length, &data_len))
     return nio_fail(nio_status_ok(nr.status) ? NIO_ERR_PAYLOAD : NIO_ERR_STATUS,
                     nio_last_rx_len, nio_last_expected_len);
-
-  data_len = get_u16le(&rx_payload[11]);
-  if (data_len > buffer_length || nr.payload_length < (uint16_t) (13 + data_len))
-    return nio_fail(NIO_ERR_PAYLOAD, nio_last_rx_len, nio_last_expected_len);
 
   if (buffer && data_len)
     _fmemcpy(buffer, rx_payload + 13, data_len);
@@ -258,8 +236,8 @@ bool nio_disk_write_sector(uint8_t slot, uint32_t lba,
 
   req_prefix[0] = NIO_DISK_VERSION;
   req_prefix[1] = slot;
-  put_u32le(&req_prefix[2], lba);
-  put_u16le(&req_prefix[6], buffer_length);
+  nio_disk_put_u32le(&req_prefix[2], lba);
+  nio_disk_put_u16le(&req_prefix[6], buffer_length);
 
   /* Build and send this request manually so sector data does not need to be
      copied into a second 16-bit DOS buffer. */
@@ -305,8 +283,8 @@ bool nio_disk_write_sector(uint8_t slot, uint32_t lba,
     nr.payload_length = rx_payload_len;
     if (!nio_status_ok(nr.status) || nr.payload_length < 11 || resp[1] != NIO_DISK_VERSION)
       return false;
-    if (bytes_written)
-      *bytes_written = get_u16le(&resp[10]);
+  if (bytes_written)
+      *bytes_written = nio_disk_get_u16le(&resp[10]);
   }
 
   return true;
@@ -322,9 +300,9 @@ bool nio_disk_write_sectors(uint8_t slot, uint32_t lba, uint16_t count,
 
   req_prefix[0] = NIO_DISK_VERSION;
   req_prefix[1] = slot;
-  put_u32le(&req_prefix[2], lba);
-  put_u16le(&req_prefix[6], count);
-  put_u16le(&req_prefix[8], buffer_length);
+  nio_disk_put_u32le(&req_prefix[2], lba);
+  nio_disk_put_u16le(&req_prefix[6], count);
+  nio_disk_put_u16le(&req_prefix[8], buffer_length);
 
   {
     nio_frame_header_t *tx = (nio_frame_header_t *) tx_prefix;
@@ -368,8 +346,8 @@ bool nio_disk_write_sectors(uint8_t slot, uint32_t lba, uint16_t count,
     nr.payload_length = rx_payload_len;
     if (!nio_status_ok(nr.status) || nr.payload_length < 13 || resp[1] != NIO_DISK_VERSION)
       return false;
-    if (bytes_written)
-      *bytes_written = get_u16le(&resp[12]);
+  if (bytes_written)
+      *bytes_written = nio_disk_get_u16le(&resp[12]);
   }
 
   return true;

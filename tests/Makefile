@@ -12,6 +12,8 @@ OBJS := \
 	$(BUILD_DIR)/test_nio_protocol.o \
 	$(BUILD_DIR)/test_timeout_math.o \
 	$(BUILD_DIR)/test_nio_transaction.o \
+	$(BUILD_DIR)/test_nio_disk_protocol.o \
+	$(BUILD_DIR)/nio_disk_protocol.o \
 	$(BUILD_DIR)/nio_protocol.o \
 	$(BUILD_DIR)/nio_transaction.o
 
@@ -29,6 +31,9 @@ $(BUILD_DIR)/%.o: %.cpp | $(BUILD_DIR)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $< -o $@
 
 $(BUILD_DIR)/nio_protocol.o: ../sys/nio_protocol.c | $(BUILD_DIR)
+	$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
+
+$(BUILD_DIR)/nio_disk_protocol.o: ../sys/nio_disk_protocol.c | $(BUILD_DIR)
 	$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
 
 $(BUILD_DIR)/nio_transaction.o: ../sys/nio_transaction.c | $(BUILD_DIR)
