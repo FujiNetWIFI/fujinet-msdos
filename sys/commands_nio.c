@@ -134,12 +134,14 @@ static uint8_t unit_to_diskservice_slot(uint8_t unit)
   return slot + 1;
 }
 
-static void fill_query(fuji_ioctl_query far *query, uint8_t unit)
+static void fill_query(fuji_ioctl_query far *query, uint8_t unit, uint16_t query_len)
 {
   _fmemcpy(query->signature, FUJI_IOCTL_SIGNATURE, 4);
   query->unit = unit;
-  query->version = FUJI_IOCTL_VERSION;
-  query->max_units = FN_MAX_DEV;
+  if (query_len >= sizeof(*query)) {
+    query->version = FUJI_IOCTL_VERSION;
+    query->max_units = FN_MAX_DEV;
+  }
 }
 
 uint16_t nio_handle_control_call(fuji_ioctl_nio_call far *call, uint8_t unit)
@@ -173,7 +175,7 @@ uint16_t nio_handle_control_call(fuji_ioctl_nio_call far *call, uint8_t unit)
 
     call->nio_status = NIO_STATUS_OK;
     call->response_len = 0;
-    fill_query((fuji_ioctl_query far *) call, unit);
+    fill_query((fuji_ioctl_query far *) call, unit, sizeof(*call));
     return OP_COMPLETE;
   }
 
@@ -192,7 +194,7 @@ uint16_t nio_handle_control_call(fuji_ioctl_nio_call far *call, uint8_t unit)
     call->diag_rx_len = nio_last_rx_len;
     call->diag_expected_len = nio_last_expected_len;
     call->diag_lsr = nio_last_lsr;
-    fill_query((fuji_ioctl_query far *) call, unit);
+    fill_query((fuji_ioctl_query far *) call, unit, sizeof(*call));
     return OP_COMPLETE;
   }
 
@@ -203,7 +205,7 @@ uint16_t nio_handle_control_call(fuji_ioctl_nio_call far *call, uint8_t unit)
   call->diag_rx_len = nio_last_rx_len;
   call->diag_expected_len = nio_last_expected_len;
   call->diag_lsr = nio_last_lsr;
-  fill_query((fuji_ioctl_query far *) call, unit);
+  fill_query((fuji_ioctl_query far *) call, unit, sizeof(*call));
   return OP_COMPLETE;
 }
 
@@ -274,7 +276,7 @@ static uint16_t handle_ioctl_buffer(SYSREQ far *req)
     return ERROR_BIT | UNKNOWN_UNIT;
   }
 
-  if (req->io.count < sizeof(fuji_ioctl_query))
+  if (req->io.count < FUJI_IOCTL_QUERY_BASE_SIZE)
     return ERROR_BIT | UNKNOWN_CMD;
 
   command = buffer[0];
@@ -283,7 +285,7 @@ static uint16_t handle_ioctl_buffer(SYSREQ far *req)
     return ERROR_BIT | UNKNOWN_CMD;
 
   if (command == FUJI_IOCTL_QUERY) {
-    fill_query((fuji_ioctl_query far *) buffer, req->unit);
+    fill_query((fuji_ioctl_query far *) buffer, req->unit, req->io.count);
     return OP_COMPLETE;
   }
 
@@ -294,7 +296,7 @@ static uint16_t handle_ioctl_buffer(SYSREQ far *req)
     if (req->io.count < sizeof(*state))
       return ERROR_BIT | UNKNOWN_CMD;
 
-    fill_query((fuji_ioctl_query far *) state, req->unit);
+    fill_query((fuji_ioctl_query far *) state, req->unit, sizeof(*state));
     state->current_uri_len = nio_current_uri_len;
     state->display_path_len = nio_display_path_len;
     _fmemcpy(state->current_uri, nio_current_uri, sizeof(nio_current_uri));
@@ -317,7 +319,7 @@ static uint16_t handle_ioctl_buffer(SYSREQ far *req)
     _fmemset(nio_display_path, 0, sizeof(nio_display_path));
     _fmemcpy(nio_current_uri, state->current_uri, nio_current_uri_len);
     _fmemcpy(nio_display_path, state->display_path, nio_display_path_len);
-    fill_query((fuji_ioctl_query far *) state, req->unit);
+    fill_query((fuji_ioctl_query far *) state, req->unit, sizeof(*state));
     return OP_COMPLETE;
   }
 
@@ -331,7 +333,7 @@ static uint16_t handle_ioctl_buffer(SYSREQ far *req)
       return ERROR_BIT | UNKNOWN_UNIT;
 
     requested_unit = map->unit;
-    fill_query((fuji_ioctl_query far *) map, req->unit);
+    fill_query((fuji_ioctl_query far *) map, req->unit, sizeof(*map));
     map->unit = requested_unit;
     map->slot = nio_unit_slot[requested_unit];
     return OP_COMPLETE;
@@ -350,7 +352,7 @@ static uint16_t handle_ioctl_buffer(SYSREQ far *req)
     cache_invalidate_unit(map->unit);
     nio_unit_slot[map->unit] = map->slot;
     media_changed[map->unit] = 1;
-    fill_query((fuji_ioctl_query far *) map, req->unit);
+    fill_query((fuji_ioctl_query far *) map, req->unit, sizeof(*map));
     return OP_COMPLETE;
   }
 

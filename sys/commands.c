@@ -127,14 +127,16 @@ uint16_t Ioctl_input_cmd(SYSREQ far *req)
     return ERROR_BIT | UNKNOWN_UNIT;
   }
 
-  if (req->io.count < sizeof(*query)) {
-    consolef("Invalid IOCTL query\n");
+  if (req->io.count < FUJI_IOCTL_QUERY_BASE_SIZE)
     return ERROR_BIT | UNKNOWN_CMD;
-  }
 
   query = (fuji_ioctl_query __far *) req->io.buffer_ptr;
   _fmemcpy(query->signature, "FUJI", 4);
   query->unit = req->unit;
+  if (req->io.count >= sizeof(*query)) {
+    query->version = FUJI_IOCTL_VERSION;
+    query->max_units = FN_MAX_DEV;
+  }
 
   return OP_COMPLETE;
 }
