@@ -17,11 +17,13 @@
  * ES:BX	== far buffer pointer
  * DI		== buffer length
  */
-int intf5(uint16_t descrdir, uint16_t devcom, uint16_t aux12, uint16_t aux34,
-	  void far *ptr, uint16_t length)
-#pragma aux intf5 parm [dx] [ax] [cx] [si] [es bx] [di] value [ax]
+uint32_t intf5(uint16_t descrdir, uint16_t devcom, uint16_t aux12, uint16_t aux34,
+               void far *ptr, uint16_t length)
+#pragma aux intf5 parm [dx] [ax] [cx] [si] [es bx] [di] value [dx ax]
 {
   bool success;
+  uint32_t retval;
+  extern uint16_t fuji_bus_call_rlen;
 
   _enable();
 
@@ -43,7 +45,10 @@ int intf5(uint16_t descrdir, uint16_t devcom, uint16_t aux12, uint16_t aux34,
     break;
   }
 
-  return success ? 'C' : 'E';
+  retval = fuji_bus_call_rlen;
+  retval <<= 16;
+  retval |= success ? 'C' : 'E';
+  return retval;
 }
 
 void setf5(void)

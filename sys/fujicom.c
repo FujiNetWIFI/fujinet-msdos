@@ -67,6 +67,8 @@ static fujibus_packet *fb_packet = (fujibus_packet *) fb_buffer;
 const uint8_t fuji_field_numbytes_table[] = {0, 1, 2, 3, 4, 2, 4, 4};
 #define fuji_field_numbytes(descr) fuji_field_numbytes_table[descr]
 
+uint16_t fuji_bus_call_rlen;
+
 void fujicom_init(void)
 {
   unsigned divisor;
@@ -255,6 +257,7 @@ bool fuji_bus_call(uint8_t device, uint8_t fuji_cmd, uint8_t fields,
     return false;
   }
 
+  fuji_bus_call_rlen = rlen - sizeof(fujibus_header);
   return true;
 }
 
