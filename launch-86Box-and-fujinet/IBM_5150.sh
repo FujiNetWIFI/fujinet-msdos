@@ -1,7 +1,7 @@
 #!/bin/bash
 
 CONFIG_DIR="/home/thomc/Workspace/fujinet-pc-rs232/build/dist"
-VM_DIR="/home/thomc/Vintage/IBM 4860 PCjr"
+VM_DIR="/home/thomc/Vintage/IBM 5150 PC"
 CONFIG_FILE="$CONFIG_DIR/fnconfig.ini"
 FUJINET_BIN="$CONFIG_DIR/fujinet"
 FUJINET_URL="0.0.0.0:8005"
