@@ -299,6 +299,11 @@ void __interrupt __far __loadds my_int2fh(INT_REGS r)
         }
     }
 
+    /* DOS below 3.0 leaves INT 2Fh null unless PRINT.COM is resident;
+       with nothing to chain to, just IRET. */
+    if (!old_int2fh)
+        return;
+
     _chain_intr(old_int2fh);
 }
 
@@ -343,6 +348,13 @@ int probe_installed(unsigned *out_psp)
 {
     union REGS r;
     struct SREGS sr;
+
+    /* DOS below 3.0 only initializes the INT 2Fh vector when PRINT.COM
+       is resident; calling through a null vector hangs the machine. A
+       null vector also means no TSR has hooked it, so report not
+       installed. */
+    if (!_dos_getvect(0x2F))
+        return 0;
 
     r.x.ax = ((unsigned)MUX_ID << 8) | MUX_CHECK;
     int86x(0x2F, &r, &r, &sr);
