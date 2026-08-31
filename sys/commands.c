@@ -89,6 +89,17 @@ uint16_t Build_bpb_cmd(SYSREQ far *req)
     return ERROR_BIT | UNKNOWN_UNIT;
   }
 
+  // Nothing mounted in this slot: answer with the default BPB from init
+  // instead of a read fault. DOS below 3.1 rebuilds the BPB before it
+  // will pass an IOCTL query through to a drive, so failing here turns
+  // an FMOUNT/CONFIG drive scan into an Abort, Retry, Ignore loop on
+  // every empty slot. mount_status is fresh because DOS always issues
+  // Media Check right before Build BPB.
+  if (!mount_status[req->unit * 2]) {
+    req->bpb.table = MK_FP(getCS(), fn_bpb_pointers[req->unit]);
+    return OP_COMPLETE;
+  }
+
   // DOS gave us a buffer to use
   buf = req->bpb.buffer_ptr;
   if (!fuji_bus_call(FUJI_DEVICEID_DISK + req->unit, FUJICMD_READ, FUJI_FIELD_C1234,
