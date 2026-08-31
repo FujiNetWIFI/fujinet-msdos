@@ -58,16 +58,18 @@ uint8_t get_fujinet_version();
 uint8_t get_set_time(uint8_t set_flag);
 void check_uart();
 uint16_t parse_config(const uint8_t far *config_sys);
-void find_drive_letter(uint8_t num_units);
+void find_drive_letter(SYSREQ far *req, uint8_t dos_major);
 
 uint16_t Init_cmd(SYSREQ far *req)
 {
   uint8_t err;
+  uint8_t dos_major;
   uint16_t unused;
 
 
   regs.h.ah = 0x30;
   intdos(&regs, &regs);
+  dos_major = regs.h.al;
   consolef("\nFujiNet driver " VERSION
 	   " " CC_VERSION_NAME " %i.%i"
 	   " on MS-DOS %i.%i\n",
@@ -122,7 +124,7 @@ uint16_t Init_cmd(SYSREQ far *req)
     req->bpb.table = MK_FP(getCS(), fn_bpb_pointers);
   }
 
-  find_drive_letter(req->init.num_units);
+  find_drive_letter(req, dos_major);
 
   setf5();
   consolef("INT F5 Functions installed.\n");
@@ -318,20 +320,35 @@ uint16_t parse_config(const uint8_t far *config_sys)
   return buf - (char *) &config_env;
 }
 
-void find_drive_letter(uint8_t num_units)
+void find_drive_letter(SYSREQ far *req, uint8_t dos_major)
 {
-  uint8_t far *lol;
-  char first;
+  uint8_t num_units = req->init.num_units;
+  uint8_t first_unit;
 
-  _asm {
-    mov ah, 52h
-      int 21h
-      mov word ptr lol, bx
-      mov word ptr lol+2, es
-      }
+  if (dos_major >= 3)
+    // DOS 3.0+ passes the first assigned drive number in the init packet
+    first_unit = req->init.drive_num;
+  else {
+    // DOS 2.x init packet has no drive number. The List of Lists
+    // (undocumented, INT 21h/52h) holds the number of logical drives
+    // installed so far at offset 10h in the 2.x layout, and DEVICE=
+    // drivers are assigned letters starting right after those.
+    uint8_t far *lol;
 
-  // Undocumented but reliable field:
-  // The number of current block devices in the List of Lists at 0x20
-  first = lol[0x20] + 'A';
-  consolef("FujiNet attached to drives %c:-%c:\n", first, first + num_units - 1);
+    _asm {
+      mov ah, 52h
+	int 21h
+	mov word ptr lol, bx
+	mov word ptr lol+2, es
+	}
+
+    first_unit = lol[0x10];
+  }
+
+  if (first_unit + num_units > 26)
+    // Whatever we read wasn't a drive number; don't print garbage letters
+    consolef("FujiNet attached (%i drives)\n", num_units);
+  else
+    consolef("FujiNet attached to drives %c:-%c:\n",
+	     'A' + first_unit, 'A' + first_unit + num_units - 1);
 }
