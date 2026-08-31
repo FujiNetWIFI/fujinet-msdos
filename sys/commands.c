@@ -139,6 +139,18 @@ uint16_t Ioctl_input_cmd(SYSREQ far *req)
   return OP_COMPLETE;
 }
 
+// DOS 3.31+ huge sector convention: a start_sector of 0xFFFF means the
+// real LBA is in the 32 bit start_sector_32 field. Don't pick the field
+// based on packet length: FreeDOS sends a full size packet for every
+// request but only fills in start_sector_32 for huge transfers. The
+// length check just guards against reading past a 22 byte DOS 2.x packet.
+static uint32_t start_sector(SYSREQ far *req)
+{
+  if (req->io.start_sector == 0xFFFF && req->length > 22)
+    return req->io.start_sector_32;
+  return req->io.start_sector;
+}
+
 uint16_t Input_cmd(SYSREQ far *req)
 {
   int reply;
@@ -158,10 +170,7 @@ uint16_t Input_cmd(SYSREQ far *req)
            req->io.start_sector, (uint32_t) req->io.start_sector_32);
 #endif
 
-  if (req->length > 22)
-    sector = req->io.start_sector_32;
-  else
-    sector = req->io.start_sector;
+  sector = start_sector(req);
 
   if (fn_bpb_table[req->unit].num_sectors)
     sector_max = fn_bpb_table[req->unit].num_sectors;
@@ -223,10 +232,7 @@ uint16_t Output_cmd(SYSREQ far *req)
   if (disk_slots[req->unit].mode != SLOT_READWRITE)
     return ERROR_BIT | WRITE_PROTECT;
 
-  if (req->length > 22)
-    sector = req->io.start_sector_32;
-  else
-    sector = req->io.start_sector;
+  sector = start_sector(req);
 
   if (fn_bpb_table[req->unit].num_sectors)
     sector_max = fn_bpb_table[req->unit].num_sectors;

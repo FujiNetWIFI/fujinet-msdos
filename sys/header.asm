@@ -24,7 +24,7 @@ _sys_hdr_ label near
 	extrn	Strategy_:near
 	extrn	Interrupt_:near
 
-ATTRIB_OVER_32M	equ	0020h
+ATTRIB_OVER_32M	equ	0002h
 ATTRIB_FAT_BPB	equ	2000h
 ATTRIB_RW_IOCTL	equ	4000h
 
