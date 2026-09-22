@@ -28,7 +28,7 @@
 #define TIMEOUT_COPY	120 * 1000
 #define MAX_RETRIES	1
 #ifndef SERIAL_BPS
-#define SERIAL_BPS      115200
+#define SERIAL_BPS      MACH_DEFAULT_BPS
 #endif /* SERIAL_BPS */
 
 union REGS f5regs;
@@ -76,7 +76,10 @@ void fujicom_init(void)
   unsigned port_len;
   unsigned long bps = SERIAL_BPS;
   int comp = 1;
-  unsigned base = COM1_UART, irq = COM1_INTERRUPT;
+  unsigned base = MACH_PORT_BASE;
+#if MACH_HAS_8250
+  unsigned irq = COM1_INTERRUPT;
+#endif
 
 
   if (getenv("FUJI_BPS"))
@@ -94,6 +97,7 @@ void fujicom_init(void)
       base = strtoul(fuji_port + 2, NULL, 16);
     else if (tolower(fuji_port[port_len - 1]) == 'h')
       base = strtoul(fuji_port, NULL, 16);
+#if MACH_HAS_8250
     else {
       comp = atoi(fuji_port);
       switch (comp) {
@@ -114,9 +118,12 @@ void fujicom_init(void)
 
     if (comma)
       irq = atoi(comma + 1);
+#else
+    /* No COM1-4 convention off the PC; use FUJI_PORT's hex form instead. */
+#endif
   }
 
-  divisor = 115200UL / bps;
+  divisor = PORT_BAUD_DIVISOR(bps);
   port_init(base, divisor);
 #if defined(DEBUG) || defined(INIT_INFO)
   consolef("Port: %xh  BPS: %ld/%d\n", port_uart_base, (int32_t) bps, divisor);

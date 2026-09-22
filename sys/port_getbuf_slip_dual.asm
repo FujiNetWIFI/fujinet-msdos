@@ -2,41 +2,32 @@
 
 ;-----------------------------------------------------------------------------
 ; Macro to wait for a character with timeout
-; On entry: SI = end tick count, ES = BIOS_DATA_SEG
+; On entry: the timeout is armed (PORT_TIME_MARK), backend addressing is set up
 ; On exit: AL = character received, or jumps to timeout_label if timeout
 ; Destroys: AH, DX
 ;-----------------------------------------------------------------------------
 SLIPD_WAIT_CHAR MACRO timeout_label
 	LOCAL wait_loop, skip_timeout, got_char
 
-	mov	dx, SLIPD_LOCAL_UART_BASE
-	add	dx, UART_LSR_OFF
+	PORT_RX_STATUS_ADDR SLIPD_LOCAL_UART_BASE
 
 wait_loop:
 	cli
-	mov	ah, 32
+	mov	ah, PORT_POLL_BURST
 
 skip_timeout:
-	in	al, dx
-	test	al, LSR_DR
-	jnz	got_char
+	PORT_RX_TEST got_char
 
 	dec	ah
 	jnz	skip_timeout
 
-	sti
-	mov	ax, es:[BIOS_TICK_OFFSET]
-	sub	ax, si
-	cmp	ax, SLIPD_PARAM_TIMEOUT
-	jb	wait_loop
+	PORT_TIME_CHECK wait_loop, SLIPD_PARAM_TIMEOUT
 
 	; Timeout occurred
 	jmp	timeout_label
 
 got_char:
-	mov	dx, SLIPD_LOCAL_UART_BASE
-	add	dx, UART_RBR_OFF
-	in	al, dx
+	PORT_RX_DATA SLIPD_LOCAL_UART_BASE
 ENDM
 
 ;-----------------------------------------------------------------------------
@@ -59,15 +50,16 @@ ENDM
 ;   AX = scratch
 ;   BX = total bytes written (accumulator)
 ;   CX = remaining space in current buffer
-;   DX = UART port / scratch
+;   DX = port / scratch
 ;   DI = buffer pointer
-;   SI = end tick count for timeout
+;   SI = timeout state, owned by the backend PORT_TIME_* macros
 ;   BP = stack frame
 ;   DS = current buffer segment (header, then data after switch)
-;   ES = BIOS_DATA_SEG (0x40) for tick counter
+;   ES = claimed by the backend: the BIOS data segment on machines that time
+;        from the BIOS tick, or the register segment on memory-mapped machines
 ;
 ; Stack layout:
-;   [bp+14] = timeout parameter (converted to ticks in place)
+;   [bp+14] = timeout parameter (converted to backend units in place)
 ;   [bp+12] = data_len parameter
 ;   [bp+10] = data_buf offset
 ;   [bp+8]  = data_buf segment
@@ -83,6 +75,7 @@ ENDM
 ;   [bp-12] = saved ES
 ;   [bp-14] = saved DS (original)
 ;   [bp-16] = _port_uart_base (copy)
+;   [bp-18] = first backend frame word, if the backend asks for any
 ;-----------------------------------------------------------------------------
 
 SLIPD_PARAM_HDR_BUF	EQU	[bp+4]
@@ -112,38 +105,33 @@ _port_getbuf_slip_dual PROC NEAR
 	mov	ax, _port_uart_base
 	push	ax			; [bp-16]
 
+	PORT_RX_FRAME_PUSH		; backend frame words, from [bp-18] down
+
 	; Check for zero total length
 	mov	ax, SLIPD_PARAM_HDR_LEN
 	add	ax, SLIPD_PARAM_DATA_LEN
 	test	ax, ax
 	jz	slipd_done		; Zero total length
 
-	; Convert timeout from ms to ticks and store in place
-	mov	ax, SLIPD_PARAM_TIMEOUT
-	xor	dx, dx
-	push	cx
-	mov	cx, 55
-	div	cx			; AX = timeout in ticks
-	pop	cx
-	mov	SLIPD_PARAM_TIMEOUT, ax	; Overwrite parameter with ticks
+	; Convert the timeout from ms to whatever the backend counts, in place
+	PORT_TIME_SCALE SLIPD_PARAM_TIMEOUT
 
 	; BX = bytes written accumulator
 	xor	bx, bx
 
-	; Set ES to BIOS data segment
-	mov	ax, BIOS_DATA_SEG
-	mov	es, ax
+	PORT_TIME_SETUP
+	PORT_HW_SETUP
 
 	; Phase 1: Sync to frame - discard until SLIP_END
 slipd_sync:
-	mov	si, es:[BIOS_TICK_OFFSET]
+	PORT_TIME_MARK SLIPD_PARAM_TIMEOUT
 	SLIPD_WAIT_CHAR slipd_done
 	cmp	al, SLIP_END
 	jne	slipd_sync
 
 	; Phase 2: Skip additional SLIP_END bytes
 slipd_skip_end:
-	mov	si, es:[BIOS_TICK_OFFSET]
+	PORT_TIME_MARK SLIPD_PARAM_TIMEOUT
 	SLIPD_WAIT_CHAR slipd_done
 	cmp	al, SLIP_END
 	je	slipd_skip_end
@@ -180,13 +168,13 @@ slipd_store_byte:
 
 slipd_read_next:
 	; Read next byte
-	mov	si, es:[BIOS_TICK_OFFSET]
+	PORT_TIME_MARK SLIPD_PARAM_TIMEOUT
 	SLIPD_WAIT_CHAR slipd_done
 	jmp	slipd_decode_loop
 
 slipd_handle_escape:
 	; Read escaped byte
-	mov	si, es:[BIOS_TICK_OFFSET]
+	PORT_TIME_MARK SLIPD_PARAM_TIMEOUT
 	SLIPD_WAIT_CHAR slipd_done
 
 	; Decode escape sequence
@@ -204,6 +192,8 @@ slipd_check_esc_esc:
 slipd_done:
 	sti
 	mov	ax, bx			; AX = total bytes written
+
+	PORT_RX_FRAME_POP		; backend frame words
 
 	pop	dx			; [bp-16] Discard _port_uart_base copy
 

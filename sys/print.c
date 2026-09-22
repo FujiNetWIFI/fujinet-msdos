@@ -2,6 +2,79 @@
 #include <stdarg.h>
 #include <ctype.h>
 
+#if MACH_CONSOLE == CONSOLE_DOS_FAST
+#include <dos.h>
+
+/*
+ * Console output for machines with no IBM-compatible INT 10h.
+ *
+ * INT 29h is DOS fast console output: it goes straight to the CON driver's
+ * character routine without passing through the INT 21h dispatcher, so
+ * unlike INT 21h AH=02h it is safe to call from inside DOS request
+ * handling.  That matters because commands.c and dispatch.c print
+ * diagnostics at runtime, not only during INIT.
+ *
+ * It is a documented MS-DOS 2.0+ facility, but these are OEM ports, so we
+ * probe for it rather than assume it.  If it is missing we still get the
+ * banner out through DOS during INIT and then go quiet, which costs
+ * diagnostics but can never corrupt DOS.
+ */
+
+uint8_t print_mode = PRINT_MODE_DOS;
+
+static void putcFast(char c);
+#pragma aux putcFast =		\
+  "int 0x29"			\
+  __parm [__al]			\
+  __modify [__ax __bx __cx __dx __si __di];
+
+static void putcDos(char c);
+#pragma aux putcDos =		\
+  "mov ah, 0x2"			\
+  "int 0x21"			\
+  __parm [__dl]			\
+  __modify [__ax __di __es];
+
+void printChar(char c)
+{
+  switch (print_mode) {
+  case PRINT_MODE_FAST:
+    putcFast(c);
+    break;
+
+  case PRINT_MODE_DOS:
+    putcDos(c);
+    break;
+
+  default:
+    /* PRINT_MODE_OFF - no mechanism that is safe here */
+    break;
+  }
+
+  return;
+}
+
+void print_probe(void)
+{
+  void far *vec = *(void far * far *) MK_FP(0, 0x29 * 4);
+
+  /* A null vector means this DOS has no fast console output. */
+  print_mode = vec ? PRINT_MODE_FAST : PRINT_MODE_DOS;
+
+  return;
+}
+
+void print_resident(void)
+{
+  /* INT 21h is not re-entrant, so it cannot survive into the resident
+     driver.  INT 29h can. */
+  if (print_mode == PRINT_MODE_DOS)
+    print_mode = PRINT_MODE_OFF;
+
+  return;
+}
+#endif /* MACH_CONSOLE == CONSOLE_DOS_FAST */
+
 void printHex(uint16_t val, uint16_t width, char leading)
 {
   uint16_t digits, tval;

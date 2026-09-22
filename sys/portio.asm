@@ -1,81 +1,51 @@
-; 8250 UART Serial I/O Driver for 8088
-; Implements serial communication functions for COM1 (port 0x3F8)
+; FujiNet serial transport for MS-DOS
 ;
-; Baud Rate Configuration (1.8432 MHz crystal):
-;   115200 baud: divisor = 1
-;    57600 baud: divisor = 2
-;    38400 baud: divisor = 3
-;    19200 baud: divisor = 6
-;     9600 baud: divisor = 12
-;     4800 baud: divisor = 24
-;     2400 baud: divisor = 48
+; SLIP framing over a machine-specific serial port.  The framing and the
+; DOS-facing entry points are portable; everything that touches hardware
+; lives in a backend under mach/, selected at build time by the makefile.
 ;
-; Change BAUD_DIVISOR below to set desired baud rate
+; To add a machine: write mach/<name>.inc against the contract documented at
+; the top of mach/pc.inc, add a case to the IFDEF chain below, and add the
+; machine to the MACHINES list in the makefile.  See also machine.h, which
+; carries the matching C-side constants.
 
 	;.model	small
 	;.8086
 
 	PUBLIC	_port_uart_base
 
-	.data
+	include slipdefs.inc
 
-; Global variable to store UART base address
-_port_uart_base	DW	3F8h		; Default to COM1
+;-----------------------------------------------------------------------------
+; Machine backend selection.  Keep in step with MACH_* in machine.h.
+;-----------------------------------------------------------------------------
 
-	.code
+IFDEF MACH_VICTOR9K
+	include mach/victor9k.inc
+ELSEIFDEF MACH_APRICOT
+	include mach/apricot.inc
+ELSEIFDEF MACH_APRICOTF
+	include mach/apricotf.inc
+ELSEIFDEF MACH_SANYO550
+	include mach/sanyo550.inc
+ELSEIFDEF MACH_TANDY2K
+	include mach/tandy2k.inc
+ELSE
+	include mach/pc.inc		; IBM PC and compatibles (default)
+ENDIF
 
-	; Baud rate divisor - change this to set baud rate
-BAUD_DIVISOR	EQU	1		; 115200 baud
+; A backend may claim ES for register addressing or for its timebase, but
+; not for both - the receive path only has the one spare segment register.
+IFDEF PORT_NEEDS_ES_FOR_HW
+IFDEF PORT_NEEDS_ES_FOR_TIME
+	.err <backend claims ES for both register access and timebase>
+ENDIF
+ENDIF
 
-	; 8250 UART Register Offsets (relative to base)
-UART_RBR_OFF	EQU	0		; Receiver Buffer Register (read)
-UART_THR_OFF	EQU	0		; Transmitter Holding Register (write)
-UART_IER_OFF	EQU	1		; Interrupt Enable Register
-UART_IIR_OFF	EQU	2		; Interrupt Identification Register
-UART_LCR_OFF	EQU	3		; Line Control Register
-UART_MCR_OFF	EQU	4		; Modem Control Register
-UART_LSR_OFF	EQU	5		; Line Status Register
-UART_MSR_OFF	EQU	6		; Modem Status Register
-UART_DLL_OFF	EQU	0		; Divisor Latch Low (when DLAB=1)
-UART_DLH_OFF	EQU	1		; Divisor Latch High (when DLAB=1)
+;-----------------------------------------------------------------------------
+; Machine-independent SLIP framing.
+;-----------------------------------------------------------------------------
 
-	; Line Status Register bits
-LSR_DR		EQU	01h		; Data Ready
-LSR_THRE	EQU	20h		; Transmitter Holding Register Empty
-
-	; Line Control Register bits
-LCR_DLAB	EQU	80h		; Divisor Latch Access Bit
-LCR_8N1		EQU	03h		; 8 data bits, no parity, 1 stop bit
-
-	; Modem Control Register bits
-MCR_DTR		EQU	01h		; Data Terminal Ready
-MCR_RTS		EQU	02h		; Request To Send
-MCR_OUT2	EQU	08h		; OUT2 (enables interrupts on PC)
-
-	; BIOS Data Area
-BIOS_DATA_SEG	EQU	40h
-BIOS_TICK_OFFSET EQU	6Ch
-
-	; SLIP Protocol Constants
-SLIP_END	EQU	0C0h
-SLIP_ESC	EQU	0DBh
-SLIP_ESC_END	EQU	0DCh
-SLIP_ESC_ESC	EQU	0DDh
-
-	.code
-
-; Debug helper - write character to QEMU debug port 0xE9
-qemu_debug_char PROC	NEAR
-	push	dx
-	push	ax
-	mov	dx, 0E9h
-	out	dx, al
-	pop	ax
-	pop	dx
-	ret
-qemu_debug_char ENDP
-
-	include port_init.asm
 	include port_getbuf_slip_dual.asm
 	include port_putc.asm
 	include port_putbuf_slip.asm

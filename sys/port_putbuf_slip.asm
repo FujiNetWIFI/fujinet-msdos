@@ -6,20 +6,10 @@
 ; Destroys: DX
 ;-----------------------------------------------------------------------------
 SLIP_SEND_BYTE MACRO
-	LOCAL wait_loop
-
 	push	ax
-wait_loop:
-	mov	dx, SLIP_PUT_LOCAL_UART_BASE
-	add	dx, UART_LSR_OFF
-	in	al, dx
-	test	al, LSR_THRE
-	jz	wait_loop
-
+	PORT_TX_WAIT SLIP_PUT_LOCAL_UART_BASE
 	pop	ax
-	mov	dx, SLIP_PUT_LOCAL_UART_BASE
-	add	dx, UART_THR_OFF
-	out	dx, al
+	PORT_TX_DATA SLIP_PUT_LOCAL_UART_BASE
 ENDM
 
 ;-----------------------------------------------------------------------------
@@ -39,7 +29,7 @@ ENDM
 ;   AL = current byte being processed
 ;   BX = encoded byte count
 ;   CX = remaining bytes to encode (counts down to 0)
-;   DX = UART port addresses
+;   DX = port addresses
 ;   SI = source buffer pointer (auto-incremented)
 ;   BP = stack frame pointer
 ;
@@ -54,6 +44,8 @@ ENDM
 ;   [bp-6]  = saved DX
 ;   [bp-8]  = saved SI
 ;   [bp-10] = saved DS
+;   [bp-12] = _port_uart_base (copy)
+;   [bp-14] = saved ES, on backends that address registers through it
 ;-----------------------------------------------------------------------------
 
 SLIP_PUT_PARAM_BUF_OFF	EQU	[bp+4]
@@ -73,6 +65,13 @@ _port_putbuf_slip PROC NEAR
 	; Save _port_uart_base on stack before switching DS
 	mov	ax, _port_uart_base
 	push	ax				; [bp-12]
+
+IFDEF PORT_NEEDS_ES_FOR_HW
+	push	es				; [bp-14]
+ENDIF
+	; Must come before DS is switched: a backend that sets up addressing
+	; here reads _port_uart_base, which is DS-relative.
+	PORT_HW_SETUP
 
 	mov	si, SLIP_PUT_PARAM_BUF_OFF	; Get buffer offset
 	mov	ax, SLIP_PUT_PARAM_BUF_SEG	; Get buffer segment
@@ -103,6 +102,9 @@ slip_put_send:
 slip_put_end:
 	mov	ax, bx			; Return encoded byte count
 
+IFDEF PORT_NEEDS_ES_FOR_HW
+	pop	es			; [bp-14]
+ENDIF
 	pop	dx			; [bp-12] Discard _port_uart_base copy
 	pop	ds			; [bp-10]
 	pop	si			; [bp-8]

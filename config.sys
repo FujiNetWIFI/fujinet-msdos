@@ -4,9 +4,16 @@
 ; FUJI_PORT  - COM port: 1-4 - Uses default hardcoded address & irq, OR
 ;                        Hex I/O address, followed by irq (e.g. FUJI_PORT=0x2f8,11)
 ;              Default: 1 (COM1)
+;              The 1-4 COM numbering is PC-only; on other machines use the
+;              hex form to name the serial chip's register address.
 ; FUJI_BPS   - Baud rate (9600, 19200, 115200, etc.)
-;              Default: 115200
+;              Default: 115200 on the PC, 9600 on every other machine
 ; NOTIME     - Do not set DOS clock from FujiNet
+;
+; Non-PC machines load their own build of the driver instead of
+; FUJINET.SYS - see the README. For example, on a Sanyo MBC-550:
+;
+;   DEVICE=FNSANYO.SYS
 
 DEVICE=FUJINET.SYS FUJI_PORT=1 FUJI_BPS=115200
 DEVICE=FUJIPRN.SYS 

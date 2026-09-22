@@ -67,6 +67,9 @@ uint16_t Init_cmd(SYSREQ far *req)
   uint16_t unused;
 
 
+  /* Pick a console mechanism before anything tries to print. */
+  print_probe();
+
   regs.h.ah = 0x30;
   intdos(&regs, &regs);
   dos_major = regs.h.al;
@@ -75,6 +78,12 @@ uint16_t Init_cmd(SYSREQ far *req)
 	   " on MS-DOS %i.%i\n",
 	   CC_VERSION_MAJOR, CC_VERSION_MINOR,
 	   regs.h.al, regs.h.ah);
+#ifndef MACH_PC
+  /* Say which machine this binary is for: loading the wrong one is an easy
+   * mistake to make and an expensive one to debug. */
+  consolef("Machine: " MACH_NAME " (" MACH_CHIP "), console %s\n",
+	   print_mode == PRINT_MODE_FAST ? "INT 29h" : "DOS (init only)");
+#endif
   unused = parse_config(req->init.bpb_ptr);
   environ = (char **) &config_env;
 
@@ -128,6 +137,10 @@ uint16_t Init_cmd(SYSREQ far *req)
 
   setf5();
   consolef("INT F5 Functions installed.\n");
+
+  /* From here on we are resident and print from inside DOS request
+     handling, so drop any mechanism that is not safe there. */
+  print_resident();
 
   return OP_COMPLETE;
 }
@@ -199,6 +212,15 @@ uint8_t get_set_time(uint8_t set_flag)
 
 void check_uart()
 {
+#if !MACH_HAS_8250
+  /* Nothing to probe: the chip is known at build time, and poking an
+     8250's scratch/FIFO registers at a uPD7201 or 8251 would write
+     garbage to real registers. */
+  consolef("Serial port is " MACH_CHIP "\n");
+
+  return;
+}
+#else
   int uart;
 
 
@@ -227,6 +249,7 @@ void check_uart()
 
   return;
 }
+#endif /* MACH_HAS_8250 */
 
 /* Parse CONFIG.SYS command line, returns number of bytes remaining in config_env */
 #define IS_CONFIG_EOL(c) (c == '\r' || c == '\n')

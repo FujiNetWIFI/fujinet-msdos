@@ -22,7 +22,7 @@ define build_it
 endef
 
 define guess_deps
-  $(wildcard $(dir $1)*.c $(dir $1)*.h $(dir $1)*.asm)
+  $(wildcard $(dir $1)*.c $(dir $1)*.h $(dir $1)*.asm $(dir $1)*.inc)
 endef
 
 SYS_DEPS = $(call guess_deps,$(SYS))
@@ -38,7 +38,19 @@ FMALL_DEPS = $(call guess_deps,$(FMALL))
 FRESET_DEPS = $(call guess_deps,$(FRESET))
 CFGTSR_DEPS = $(call guess_deps,$(CFGTSR))
 
+# Drivers for non-IBM-PC MS-DOS machines.  Not part of `all`: a PC user has
+# no use for them, and `builds`/`zip`/`disk` stay PC-only for the same
+# reason.  Use `make machines` or `make builds-machines`.
+MACHINES_SYS = sys/fnvic9k.sys sys/fnapric.sys sys/fnaprf.sys \
+               sys/fnsanyo.sys sys/fnt2000.sys
+
 all: $(SYS) $(COMS) $(NCOPY) $(FNSHARE) $(PRINTER) $(NGET) $(NPUT) $(FMOUNT) $(FCONFIG) $(FMALL) $(FRESET) $(CFGTSR)
+
+# $(SYS) first: it leaves the shared, PC-flavoured sys/print.obj in place.
+machines: $(SYS) $(SYS_DEPS)
+	make -C sys machines
+
+$(MACHINES_SYS): machines
 
 $(SYS): $(COMS) $(SYS_DEPS)
 	$(build_it)
@@ -84,16 +96,28 @@ builds: all
 	@cp -u $(SYS) $(PRINTER) $(NCOPY) $(FNSHARE) $(NGET) $(NPUT) $(FMOUNT) $(FCONFIG) $(FMALL) $(FRESET) $(CFGTSR) config.sys builds/
 	@echo "Done."
 
+# Collect the non-PC drivers for distribution.
+builds-machines: machines
+	@mkdir -p builds
+	@echo -n "Copying machine drivers to builds directory..."
+	@cp -u $(MACHINES_SYS) builds/
+	@echo "Done."
+
 CLEAN_DIRS = $(sort $(dir $(SYS) $(COMS) $(NCOPY) $(FNSHARE) $(PRINTER) $(NGET) $(NPUT) $(FMOUNT) $(FCONFIG) $(FMALL) $(FRESET) $(CFGTSR)))
 
 clean:
 	@echo "Cleaning up build artifacts..."
-	@rm -rf builds
+	@rm -rf builds sys/obj
 	@for d in $(CLEAN_DIRS); do rm -f $$d*.exe $$d*.obj $$d*.lib $$d*.com $$d*.sys; done
 	@rm -f *.img
 	@echo "Done."
 
-sys/print.obj:
+# Shared by printer/ ncopy/ nget/ nput/ fmount/ fnshare/ iss/ and nc/.
+# It must always be the PC build of print.c (INT 10h console output); the
+# non-PC drivers keep theirs in sys/obj/<machine>/.  Listing prerequisites
+# matters: without them make treats an existing print.obj as up to date
+# forever and never regenerates a stale one.
+sys/print.obj: sys/print.c sys/print.h sys/machine.h
 	make -C $(dir $@)
 
 zip: builds
