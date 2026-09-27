@@ -153,6 +153,17 @@ void packet_fail(fujibus_packet *packet, uint16_t rlen, const char *message, ...
   return;
 }
 
+void discard_input(void)
+{
+  int rcv;
+
+
+  do {
+    rcv = port_getc_timeout(TIMEOUT);
+  } while (rcv >= 0);
+  return;
+}
+
 bool fuji_bus_call(uint8_t device, uint8_t fuji_cmd, uint8_t fields,
 		   uint8_t aux1, uint8_t aux2, uint8_t aux3, uint8_t aux4,
 		   const void far *data, size_t data_length,
@@ -220,6 +231,7 @@ bool fuji_bus_call(uint8_t device, uint8_t fuji_cmd, uint8_t fields,
     packet_fail(fb_packet, rlen,
                 "SHORT PACKET R:%d E:%d\n", rlen, fb_packet->header.length);
 #endif
+    discard_input();
     return false;
   }
 
@@ -239,6 +251,7 @@ bool fuji_bus_call(uint8_t device, uint8_t fuji_cmd, uint8_t fields,
 #ifdef DEBUG
     packet_fail(fb_packet, rlen, "CHECKSUM MISMATCH C:%02x E:%02x\n", ck2, ck1);
 #endif
+    discard_input();
     return false;
   }
 
@@ -247,6 +260,7 @@ bool fuji_bus_call(uint8_t device, uint8_t fuji_cmd, uint8_t fields,
     packet_fail(fb_packet, rlen,
                 "WRONG DEVICE %02x != %02x\n", fb_packet->header.device, device);
 #endif
+    discard_input();
     return false;
   }
 
@@ -254,6 +268,7 @@ bool fuji_bus_call(uint8_t device, uint8_t fuji_cmd, uint8_t fields,
 #ifdef DEBUG
     packet_fail(fb_packet, rlen, "NOT ACK 0x%02x\n", fb_packet->header.command);
 #endif
+    discard_input();
     return false;
   }
 
