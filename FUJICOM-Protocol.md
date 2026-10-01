@@ -88,6 +88,19 @@ https://github.com/FujiNetWIFI/fujinet-firmware/wiki/SIO-Commands-for-Device-ID-
 Commands for device 0x71-0x78:
 https://github.com/FujiNetWIFI/fujinet-firmware/wiki/SIO-Commands-for-Device-IDs-%2471-to-%2478
 
+### Resend (command 0x05, any device)
+
+A host that receives by polling a UART with no FIFO can lose part of a
+reply while an interrupt it cannot mask runs (the PCjr's keyboard NMI holds
+the CPU about 9 ms a key). Rather than run the command again (a network
+read has already consumed its bytes), the host sends command 0x05 with no
+aux bytes or payload to the same device; the FujiNet answers with its last
+reply, byte for byte. FUJINET.SYS does this up to twice when a reply comes
+short, garbled or for the wrong device, and gives up a reply 110 ms after
+its last byte (its bytes come back to back). Supported by fujinet-pc-rs232
+and firmware with the matching change; an older FujiNet ignores 0x05 and
+the host sees its timeout as before.
+
 ### Calculating 8-bit Checksum
 
 The 8 bit checksum is a simple sum, with any carry explicitly ignored. The implementation used by the firmware is shown here:

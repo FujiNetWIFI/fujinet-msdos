@@ -20,13 +20,18 @@
 
 #define TIMEOUT         100
 #define TIMEOUT_SLOW	15 * 1000
+/* A reply's bytes come back to back: one more than TIMEOUT_GAP after the
+ * last is lost (the PCjr's keyboard NMI stops the poll ~9 ms a key, and
+ * the 8250 holds one byte). Two BIOS ticks, with the tick's 55 ms grain. */
+#define TIMEOUT_GAP	110
 /* FUJICMD_COPY_FILE runs entirely on the FujiNet side (source read + dest
  * write against TNFS/SD) and sends nothing on the wire until it is done, so
  * it needs a much longer receive timeout than every other command. Keep
  * this in sync with FUJICMD_COPY_FILE in fujinet-commands.h. */
 #define FUJICMD_COPY_FILE 0xD8
 #define TIMEOUT_COPY	120 * 1000
-#define MAX_RETRIES	1
+#define MAX_RETRIES	2	/* resends asked for a reply that came garbled */
+#define FUJICMD_RESEND	0x05	/* send your last reply again (fujinet-pc-rs232) */
 #ifndef SERIAL_BPS
 #define SERIAL_BPS      115200
 #endif /* SERIAL_BPS */
@@ -164,13 +169,64 @@ void discard_input(void)
   return;
 }
 
+/* The reply in fb_packet (rlen bytes of it): 1 an ACK, 0 a NAK (the
+ * command failed: no point asking for it again), -1 not a whole reply. */
+static int reply_check(uint8_t device, uint16_t rlen)
+{
+  uint16_t ck1, ck2;
+
+  if (rlen < sizeof(fujibus_header) || rlen != fb_packet->header.length) {
+#ifdef DEBUG
+    packet_fail(fb_packet, rlen,
+                "SHORT PACKET R:%d E:%d\n", rlen, fb_packet->header.length);
+#endif
+    return -1;
+  }
+
+  // FIXME - validate that fb_packet->fields is zero?
+
+  // Need to zero out checksum in order to calculate
+  ck1 = fb_packet->header.checksum;
+  fb_packet->header.checksum = 0;
+
+  // Data is spread across two buffers: ours and reply
+  ck2 = fuji_calc_checksum(fb_packet, sizeof(fb_packet->header), 0);
+  if (fb_packet->data)
+    ck2 = fuji_calc_checksum(fb_packet->data, rlen - sizeof(fujibus_header), ck2);
+  ck2 = (uint8_t) ck2;
+
+  if (ck1 != ck2) {
+#ifdef DEBUG
+    packet_fail(fb_packet, rlen, "CHECKSUM MISMATCH C:%02x E:%02x\n", ck2, ck1);
+#endif
+    return -1;
+  }
+
+  if (fb_packet->header.device != device) {
+#ifdef DEBUG
+    packet_fail(fb_packet, rlen,
+                "WRONG DEVICE %02x != %02x\n", fb_packet->header.device, device);
+#endif
+    return -1;
+  }
+
+  if (fb_packet->header.command != PACKET_ACK) {
+#ifdef DEBUG
+    packet_fail(fb_packet, rlen, "NOT ACK 0x%02x\n", fb_packet->header.command);
+#endif
+    return 0;
+  }
+  return 1;
+}
+
 bool fuji_bus_call(uint8_t device, uint8_t fuji_cmd, uint8_t fields,
 		   uint8_t aux1, uint8_t aux2, uint8_t aux3, uint8_t aux4,
 		   const void far *data, size_t data_length,
 		   void far *reply, size_t reply_length)
 {
   int code;
-  uint16_t ck1, ck2;
+  uint8_t tries;
+  uint16_t ck1;
   uint16_t rlen;
   uint16_t idx, numbytes;
   uint8_t *ptr = &fb_buffer[sizeof(fujibus_header)];
@@ -217,59 +273,31 @@ bool fuji_bus_call(uint8_t device, uint8_t fuji_cmd, uint8_t fields,
   port_putc(SLIP_END);
 
   fb_packet->data = reply;
-  rlen = port_getbuf_slip_dual(fb_packet, sizeof(fb_packet->header),
-                               fb_packet->data, reply_length,
-                               fuji_cmd == FUJICMD_COPY_FILE ? TIMEOUT_COPY : TIMEOUT_SLOW);
-
-#if 0 //def DEBUG
-  if (rlen)
-    dumpHex(fb_packet, rlen, 0);
-  consolef("RECEIVED LEN %d\n", rlen);
-#endif
-  if (rlen < sizeof(fujibus_header) || rlen != fb_packet->header.length) {
-#ifdef DEBUG
-    packet_fail(fb_packet, rlen,
-                "SHORT PACKET R:%d E:%d\n", rlen, fb_packet->header.length);
-#endif
+  for (tries = 0; ; tries++) {
+    rlen = port_getbuf_slip_dual(fb_packet, sizeof(fb_packet->header),
+                                 fb_packet->data, reply_length,
+                                 fuji_cmd == FUJICMD_COPY_FILE ? TIMEOUT_COPY : TIMEOUT_SLOW,
+                                 TIMEOUT_GAP);
+    code = reply_check(device, rlen);
+    if (code > 0)
+      break;
+    /* Drop whatever is left of a bad reply before asking again */
     discard_input();
-    return false;
-  }
-
-  // FIXME - validate that fb_packet->fields is zero?
-
-  // Need to zero out checksum in order to calculate
-  ck1 = fb_packet->header.checksum;
-  fb_packet->header.checksum = 0;
-
-  // Data is spread across two buffers: ours and reply
-  ck2 = fuji_calc_checksum(fb_packet, sizeof(fb_packet->header), 0);
-  if (fb_packet->data)
-    ck2 = fuji_calc_checksum(fb_packet->data, rlen - sizeof(fujibus_header), ck2);
-  ck2 = (uint8_t) ck2;
-
-  if (ck1 != ck2) {
-#ifdef DEBUG
-    packet_fail(fb_packet, rlen, "CHECKSUM MISMATCH C:%02x E:%02x\n", ck2, ck1);
-#endif
-    discard_input();
-    return false;
-  }
-
-  if (fb_packet->header.device != device) {
-#ifdef DEBUG
-    packet_fail(fb_packet, rlen,
-                "WRONG DEVICE %02x != %02x\n", fb_packet->header.device, device);
-#endif
-    discard_input();
-    return false;
-  }
-
-  if (fb_packet->header.command != PACKET_ACK) {
-#ifdef DEBUG
-    packet_fail(fb_packet, rlen, "NOT ACK 0x%02x\n", fb_packet->header.command);
-#endif
-    discard_input();
-    return false;
+    if (!code || tries == MAX_RETRIES)
+      return false;
+    /* The reply came short or garbled: bytes lost on the line (a host
+     * polling a FIFO-less UART while an interrupt it can't mask runs). The
+     * FujiNet keeps the last reply it sent: ask for that again, rather
+     * than run the command again (a network read has taken its bytes). */
+    fb_packet->header.device = device;
+    fb_packet->header.command = FUJICMD_RESEND;
+    fb_packet->header.length = sizeof(fujibus_header);
+    fb_packet->header.checksum = 0;
+    fb_packet->header.fields = 0;
+    fb_packet->header.checksum = fuji_calc_checksum(fb_packet, sizeof(fujibus_header), 0);
+    port_putc(SLIP_END);
+    port_putbuf_slip(fb_buffer, sizeof(fujibus_header));
+    port_putc(SLIP_END);
   }
 
   fuji_bus_call_rlen = rlen - sizeof(fujibus_header);
