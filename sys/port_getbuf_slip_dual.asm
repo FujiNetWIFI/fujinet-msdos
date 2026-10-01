@@ -1,12 +1,12 @@
 	PUBLIC	_port_getbuf_slip_dual
 
 ;-----------------------------------------------------------------------------
-; Macro to wait for a character with timeout
-; On entry: SI = end tick count, ES = BIOS_DATA_SEG
+; Macro to wait for a character with timeout (tmo: the parameter, in ticks)
+; On entry: SI = start tick count, ES = BIOS_DATA_SEG
 ; On exit: AL = character received, or jumps to timeout_label if timeout
 ; Destroys: AH, DX
 ;-----------------------------------------------------------------------------
-SLIPD_WAIT_CHAR MACRO timeout_label
+SLIPD_WAIT_CHAR MACRO timeout_label, tmo
 	LOCAL wait_loop, skip_timeout, got_char
 
 	mov	dx, SLIPD_LOCAL_UART_BASE
@@ -27,7 +27,7 @@ skip_timeout:
 	sti
 	mov	ax, es:[BIOS_TICK_OFFSET]
 	sub	ax, si
-	cmp	ax, SLIPD_PARAM_TIMEOUT
+	cmp	ax, tmo
 	jb	wait_loop
 
 	; Timeout occurred
@@ -52,7 +52,12 @@ ENDM
 ; Parameters:
 ;   hdr_buf (near pointer), hdr_len (word),
 ;   data_buf (far pointer - segment:offset), data_len (word),
-;   timeout (word in ms)
+;   timeout (word in ms): the wait for the frame to start,
+;   gap_timeout (word in ms): the wait for each byte after that. The
+;     bytes of a reply come back to back, so a long gap means some were
+;     lost (a host polling a FIFO-less UART while an interrupt it can't
+;     mask runs: the PCjr's keyboard NMI); the caller then asks for the
+;     reply again rather than wait the whole command timeout for nothing.
 ; Returns: Total number of decoded bytes (header + data)
 ;
 ; Register usage:
@@ -67,6 +72,7 @@ ENDM
 ;   ES = BIOS_DATA_SEG (0x40) for tick counter
 ;
 ; Stack layout:
+;   [bp+16] = gap_timeout parameter (converted to ticks in place)
 ;   [bp+14] = timeout parameter (converted to ticks in place)
 ;   [bp+12] = data_len parameter
 ;   [bp+10] = data_buf offset
@@ -91,6 +97,7 @@ SLIPD_PARAM_DATA_OFF	EQU	[bp+8]
 SLIPD_PARAM_DATA_SEG	EQU	[bp+10]
 SLIPD_PARAM_DATA_LEN	EQU	[bp+12]
 SLIPD_PARAM_TIMEOUT	EQU	[bp+14]
+SLIPD_PARAM_GAP		EQU	[bp+16]
 SLIPD_LOCAL_UART_BASE	EQU	[bp-16]
 
 _port_getbuf_slip_dual PROC NEAR
@@ -118,14 +125,18 @@ _port_getbuf_slip_dual PROC NEAR
 	test	ax, ax
 	jz	slipd_done		; Zero total length
 
-	; Convert timeout from ms to ticks and store in place
+	; Convert the timeouts from ms to ticks and store in place
 	mov	ax, SLIPD_PARAM_TIMEOUT
 	xor	dx, dx
 	push	cx
 	mov	cx, 55
 	div	cx			; AX = timeout in ticks
-	pop	cx
 	mov	SLIPD_PARAM_TIMEOUT, ax	; Overwrite parameter with ticks
+	mov	ax, SLIPD_PARAM_GAP
+	xor	dx, dx
+	div	cx			; AX = gap timeout in ticks
+	pop	cx
+	mov	SLIPD_PARAM_GAP, ax
 
 	; BX = bytes written accumulator
 	xor	bx, bx
@@ -134,17 +145,24 @@ _port_getbuf_slip_dual PROC NEAR
 	mov	ax, BIOS_DATA_SEG
 	mov	es, ax
 
-	; Phase 1: Sync to frame - discard until SLIP_END
+	; Phase 1: Sync to frame - discard until SLIP_END. Only the first byte
+	; gets the long wait: once anything has come, the rest of the frame
+	; comes back to back, or not at all (the head of a reply lost on the
+	; line: don't wait the whole command timeout for an END that won't come)
+	mov	si, es:[BIOS_TICK_OFFSET]
+	SLIPD_WAIT_CHAR slipd_done, SLIPD_PARAM_TIMEOUT
+	cmp	al, SLIP_END
+	je	slipd_skip_end
 slipd_sync:
 	mov	si, es:[BIOS_TICK_OFFSET]
-	SLIPD_WAIT_CHAR slipd_done
+	SLIPD_WAIT_CHAR slipd_done, SLIPD_PARAM_GAP
 	cmp	al, SLIP_END
 	jne	slipd_sync
 
 	; Phase 2: Skip additional SLIP_END bytes
 slipd_skip_end:
 	mov	si, es:[BIOS_TICK_OFFSET]
-	SLIPD_WAIT_CHAR slipd_done
+	SLIPD_WAIT_CHAR slipd_done, SLIPD_PARAM_GAP
 	cmp	al, SLIP_END
 	je	slipd_skip_end
 
@@ -181,13 +199,13 @@ slipd_store_byte:
 slipd_read_next:
 	; Read next byte
 	mov	si, es:[BIOS_TICK_OFFSET]
-	SLIPD_WAIT_CHAR slipd_done
+	SLIPD_WAIT_CHAR slipd_done, SLIPD_PARAM_GAP
 	jmp	slipd_decode_loop
 
 slipd_handle_escape:
 	; Read escaped byte
 	mov	si, es:[BIOS_TICK_OFFSET]
-	SLIPD_WAIT_CHAR slipd_done
+	SLIPD_WAIT_CHAR slipd_done, SLIPD_PARAM_GAP
 
 	; Decode escape sequence
 	cmp	al, SLIP_ESC_END
