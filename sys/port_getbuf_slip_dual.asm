@@ -52,7 +52,8 @@ ENDM
 ; Parameters:
 ;   hdr_buf (near pointer), hdr_len (word),
 ;   data_buf (far pointer - segment:offset), data_len (word),
-;   timeout (word in ms): the wait for the frame to start,
+;   timeout (word in ms): the wait for the frame to start (its first
+;     byte that is not SLIP_END),
 ;   gap_timeout (word in ms): the wait for each byte after that. The
 ;     bytes of a reply come back to back, so a long gap means some were
 ;     lost (a host polling a FIFO-less UART while an interrupt it can't
@@ -152,7 +153,7 @@ _port_getbuf_slip_dual PROC NEAR
 	mov	si, es:[BIOS_TICK_OFFSET]
 	SLIPD_WAIT_CHAR slipd_done, SLIPD_PARAM_TIMEOUT
 	cmp	al, SLIP_END
-	je	slipd_skip_end
+	je	slipd_skip_end_first
 slipd_sync:
 	mov	si, es:[BIOS_TICK_OFFSET]
 	SLIPD_WAIT_CHAR slipd_done, SLIPD_PARAM_GAP
@@ -165,6 +166,16 @@ slipd_skip_end:
 	SLIPD_WAIT_CHAR slipd_done, SLIPD_PARAM_GAP
 	cmp	al, SLIP_END
 	je	slipd_skip_end
+	jmp	slipd_decode_loop
+
+	; The first byte was an END, which may be the last reply's closing END:
+	; a reply that fills the buffers ends the call before it is read. Then
+	; this reply has not started yet, so keep the long wait until it does.
+slipd_skip_end_first:
+	mov	si, es:[BIOS_TICK_OFFSET]
+	SLIPD_WAIT_CHAR slipd_done, SLIPD_PARAM_TIMEOUT
+	cmp	al, SLIP_END
+	je	slipd_skip_end_first
 
 	; Phase 3: Decode - AL has first data byte
 slipd_decode_loop:
