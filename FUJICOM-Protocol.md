@@ -97,7 +97,9 @@ read has already consumed its bytes), the host sends command 0x05 with no
 aux bytes or payload to the same device; the FujiNet answers with its last
 reply, byte for byte. FUJINET.SYS does this up to twice when a reply comes
 short, garbled or for the wrong device, and gives up a reply 110 ms after
-its last byte (its bytes come back to back). Supported by fujinet-pc-rs232
+its last byte (its bytes come back to back). END bytes alone don't start a
+reply: one may be the closing END of the last reply, left unread when that
+reply filled the buffer. Supported by fujinet-pc-rs232
 and firmware with the matching change; an older FujiNet ignores 0x05 and
 the host sees its timeout as before.
 
